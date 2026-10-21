@@ -1,0 +1,6 @@
+{
+  "name": "EduHub - Secure Educational Streaming Platform",
+  "description": "Educational video sharing platform featuring dark mode, encrypted media storage, granular role permissions, robust content moderation, and real-time push notifications.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

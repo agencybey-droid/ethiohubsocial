@@ -1,0 +1,171 @@
+export type Language = 'en' | 'am';
+
+export const translations = {
+  en: {
+    // Brand & General
+    brandName: 'ethiohub',
+    tagline: 'Video Sharing & Streaming Network',
+    searchPlaceholder: 'Search videos, creators, channels...',
+    upload: 'Upload',
+    notifications: 'Notifications',
+    signIn: 'Sign In',
+    signOut: 'Sign Out',
+    myAccount: 'Account & Permissions',
+    allVideos: 'All Videos',
+
+    // Navigation
+    navHome: 'Home',
+    navTrending: 'Trending',
+    navTopRated: 'Top Rated',
+    navCategories: 'Categories',
+    navModeration: 'Moderation',
+    navAdmin: 'Admin',
+
+    // Categories
+    catAll: 'All',
+    catHistory: 'History',
+    catTechnology: 'Technology',
+    catNature: 'Nature & Wildlife',
+    catMusic: 'Music & Arts',
+    catCulture: 'Culture',
+    catMedical: 'Medical',
+
+    // Sorting
+    sortBy: 'Sort:',
+    sortMostViewed: 'Most Viewed',
+    sortTopRated: 'Top Rated',
+    sortNewest: 'Recently Added',
+    videosCount: 'Videos',
+    loadingVideos: 'Loading videos...',
+    noVideosFound: 'No Videos Found',
+    resetFilters: 'Show All Videos',
+
+    // Video Player & Actions
+    views: 'views',
+    subscribers: 'subscribers',
+    subscribe: 'Subscribe',
+    subscribed: 'Subscribed',
+    save: 'Save',
+    saved: 'Saved',
+    report: 'Report',
+    comments: 'Comments',
+    addComment: 'Add a comment...',
+    attachTimestamp: 'Attach timestamp',
+    postComment: 'Comment',
+    relatedVideos: 'Related Videos',
+    backToVideos: 'Back to Videos',
+    pinned: 'Pinned',
+
+    // Age Gate Modal
+    ageGateTitle: 'Age Verification',
+    ageGateSubtitle: 'This website contains mature, clinical, and community-shared video material.',
+    ageGatePrompt: 'You must be 18 years of age or older to enter ethiohub. Please confirm your age before proceeding.',
+    ageGateConfirm: 'I am 18 or older - Enter',
+    ageGateDecline: 'I am under 18 - Exit',
+    chooseLanguage: 'Select Language / ቋንቋ ይምረጡ',
+
+    // Footer
+    footerInfo: 'Information',
+    footerAbout: 'About ethiohub',
+    footerPress: 'Press & Media',
+    footerCareers: 'Careers',
+    footerCreators: 'Creators & Content',
+    footerCreatorProg: 'Creator Program',
+    footerUploadGuide: 'Upload Guidelines',
+    footerModeration: 'Content Moderation Board',
+    footerLegal: 'Legal & Safety',
+    footerTerms: 'Terms of Service',
+    footerPrivacy: 'Privacy Policy',
+    footerDmca: 'DMCA / Copyright Notice',
+    footerChildSafety: 'Child Safety Protection',
+    footerDiscover: 'Discover',
+    footerSupport: 'Support',
+    footerHelp: 'Help Center & FAQ',
+    footerNotice: 'ethiohub has a zero-tolerance policy against illegal content and copyright violations. All content is subject to strict community moderation.',
+    footerRights: 'All rights reserved.',
+  },
+
+  am: {
+    // Brand & General
+    brandName: 'ethiohub',
+    tagline: 'የቪዲዮ ማጋሪያ እና ማሰራጫ አውታረ መረብ',
+    searchPlaceholder: 'ቪዲዮዎችን፣ ፈጣሪዎችን፣ ቻናሎችን ይፈልጉ...',
+    upload: 'ስቀል',
+    notifications: 'ማሳወቂያዎች',
+    signIn: 'ግባ',
+    signOut: 'ውጣ',
+    myAccount: 'መለያ እና ፈቃዶች',
+    allVideos: 'ሁሉም ቪዲዮዎች',
+
+    // Navigation
+    navHome: 'መነሻ',
+    navTrending: 'በጣም የታዩ',
+    navTopRated: 'ከፍተኛ ደረጃ',
+    navCategories: 'ምድቦች',
+    navModeration: 'ልከኝነት',
+    navAdmin: 'አስተዳዳሪ',
+
+    // Categories
+    catAll: 'ሁሉም',
+    catHistory: 'ታሪክ',
+    catTechnology: 'ቴክኖሎጂ',
+    catNature: 'ተፈጥሮ እና የዱር እንስሳት',
+    catMusic: 'ሙዚቃ እና ጥበብ',
+    catCulture: 'ባህል',
+    catMedical: 'ህክምና',
+
+    // Sorting
+    sortBy: 'አደራድር:',
+    sortMostViewed: 'በእይታ ብዛት',
+    sortTopRated: 'ከፍተኛ ደረጃ',
+    sortNewest: 'በቅርብ የተጨመሩ',
+    videosCount: 'ቪዲዮዎች',
+    loadingVideos: 'ቪዲዮዎች በመጫን ላይ ናቸው...',
+    noVideosFound: 'ምንም ቪዲዮ አልተገኘም',
+    resetFilters: 'ሁሉንም ቪዲዮዎች አሳይ',
+
+    // Video Player & Actions
+    views: 'እይታዎች',
+    subscribers: 'ተመዝጋቢዎች',
+    subscribe: 'ተከታተል',
+    subscribed: 'ተከታትለዋል',
+    save: 'አስቀምጥ',
+    saved: 'ተቀምጧል',
+    report: 'ሪፖርት አድርግ',
+    comments: 'አስተያየቶች',
+    addComment: 'አስተያየት ይጻፉ...',
+    attachTimestamp: 'የጊዜ ምልክት አያይዝ',
+    postComment: 'አስተያየት ላክ',
+    relatedVideos: 'ተዛማጅ ቪዲዮዎች',
+    backToVideos: 'ወደ ቪዲዮዎች ተመለስ',
+    pinned: 'የተሰካ',
+
+    // Age Gate Modal
+    ageGateTitle: 'የዕድሜ ማረጋገጫ',
+    ageGateSubtitle: 'ይህ ድረ-ገጽ የጎለመሱ፣ ክሊኒካዊ እና በማህበረሰብ የተጋሩ የቪዲዮ ይዘቶችን ይዟል።',
+    ageGatePrompt: 'ወደ ethiohub ለመግባት እድሜዎ 18 ዓመት ወይም ከዚያ በላይ መሆን አለበት። እባክዎ ከመቀጠልዎ በፊት ዕድሜዎን ያረጋግጡ።',
+    ageGateConfirm: 'ዕድሜዬ 18 ወይም ከዚያ በላይ ነው - ግባ',
+    ageGateDecline: 'ከ18 ዓመት በታች ነኝ - ውጣ',
+    chooseLanguage: 'ቋንቋ ይምረጡ / Select Language',
+
+    // Footer
+    footerInfo: 'መረጃ',
+    footerAbout: 'ስለ ethiohub',
+    footerPress: 'ፕሬስ እና ሚዲያ',
+    footerCareers: 'የስራ እድሎች',
+    footerCreators: 'ፈጣሪዎች እና ይዘቶች',
+    footerCreatorProg: 'የፈጣሪዎች ፕሮግራም',
+    footerUploadGuide: 'የይዘት መመሪያዎች',
+    footerModeration: 'የይዘት ልከኝነት ቦርድ',
+    footerLegal: 'ህጋዊ እና ደህንነት',
+    footerTerms: 'የአገልግሎት ውሎች',
+    footerPrivacy: 'የግላዊነት ፖሊሲ',
+    footerDmca: 'የቅጂ መብት ማስታወቂያ (DMCA)',
+    footerChildSafety: 'የልጆች ደህንነት ጥበቃ',
+    footerDiscover: 'አስስ',
+    footerSupport: 'እገዛ እና ድጋፍ',
+    footerHelp: 'የእገዛ ማዕከል',
+    footerNotice: 'ethiohub ህገወጥ ይዘቶችን እና የቅጂ መብት ጥሰቶችን በዜሮ መቻቻል ፖሊሲ ይቆጣጠራል። ሁሉም ይዘቶች ጥብቅ የማህበረሰብ ቁጥጥር ይደረግባቸዋል።',
+    footerRights: 'መብቱ በህግ የተጠበቀ ነው።',
+  },
+};
