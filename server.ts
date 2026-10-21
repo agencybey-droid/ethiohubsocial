@@ -24,7 +24,8 @@ import {
 } from './src/db/queries.ts';
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -177,23 +178,29 @@ app.post('/api/videos/upload', async (req, res) => {
       fileSize,
     } = req.body;
 
-    if (!title || !description || !videoUrl || !thumbnailUrl || !educatorId) {
-      return res.status(400).json({ error: 'Missing required video fields' });
+    const cleanTitle = (title || '').trim();
+    if (!cleanTitle) {
+      return res.status(400).json({ error: 'Video title is required' });
     }
 
+    const cleanDescription = (description || `Educational video lecture: ${cleanTitle}`).trim();
+    const cleanVideoUrl = (videoUrl || '').trim() || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+    const cleanThumbUrl = (thumbnailUrl || previewUrl || '').trim() || 'https://images.unsplash.com/photo-1516426122078-c23e76319801?w=800&auto=format&fit=crop&q=80';
+    const cleanEducatorId = educatorId || 'admin-portal';
+
     const video = await createVideo({
-      title,
-      description,
-      videoUrl,
-      thumbnailUrl,
-      previewUrl: previewUrl || thumbnailUrl,
+      title: cleanTitle,
+      description: cleanDescription,
+      videoUrl: cleanVideoUrl,
+      thumbnailUrl: cleanThumbUrl,
+      previewUrl: previewUrl || cleanThumbUrl,
       duration: duration || '15:00',
       durationSec: durationSec || 900,
       category: category || 'Science & Technology',
       tags: typeof tags === 'string' ? tags : JSON.stringify(tags || []),
-      educatorId,
+      educatorId: cleanEducatorId,
       educatorName: educatorName || 'Verified Educator',
-      educatorAvatar,
+      educatorAvatar: educatorAvatar || null,
       accessLevel: accessLevel || 'public',
       isEncrypted: isEncrypted !== undefined ? isEncrypted : false,
       encryptionAlgorithm: encryptionAlgorithm || 'AES-256-GCM',
@@ -463,20 +470,33 @@ app.get('/api/stats', async (req, res) => {
   }
 });
 
-import { fileURLToPath } from 'node:url';
+const PORT = Number(process.env.PORT) || 3000;
 
-export default app;
+async function startServer() {
+  if (process.env.NODE_ENV === 'production') {
+    const path = await import('path');
+    const { fileURLToPath } = await import('url');
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
 
-// Standalone start for production when executed directly
-const isDirectExecution = process.argv[1] && (
-  process.argv[1].endsWith('server.ts') || 
-  process.argv[1].endsWith('server.js')
-);
+    app.use(express.static(path.resolve(__dirname, 'dist')));
+    app.get('*', (_req, res) => {
+      res.sendFile(path.resolve(__dirname, 'dist', 'index.html'));
+    });
+  } else {
+    const { createServer } = await import('vite');
+    const vite = await createServer({
+      server: { middlewareMode: true, host: '0.0.0.0', port: PORT },
+      appType: 'spa',
+    });
+    app.use(vite.middlewares);
+  }
 
-if (isDirectExecution) {
-  const PORT = process.env.PORT || 3000;
-  app.use(express.static('dist'));
-  app.listen(PORT, () => {
-    console.log(`EduHub server running on port ${PORT}`);
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`EduHub server running on http://0.0.0.0:${PORT}`);
   });
 }
+
+startServer();
+
+export default app;
