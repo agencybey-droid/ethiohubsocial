@@ -24,7 +24,13 @@ import {
   Check,
   Sparkles,
 } from 'lucide-react';
-import { publishVideo, getAdminVideosCatalog, removeVideoItem } from '../services/videoService.ts';
+import {
+  publishVideo,
+  getAdminVideosCatalog,
+  removeVideoItem,
+  clearAllPlaceholders,
+  restorePlaceholders,
+} from '../services/videoService.ts';
 
 interface ReportItem {
   id: number;
@@ -179,11 +185,52 @@ export const ModerationDashboard: React.FC<ModerationDashboardProps> = ({
   const [isPeerReviewed, setIsPeerReviewed] = useState(true);
   const [autoApprove, setAutoApprove] = useState(true);
 
-  // Video source
-  const [videoSourceType, setVideoSourceType] = useState<'preset' | 'file' | 'url'>('preset');
+  // Video source - Defaults to real local file upload
+  const [videoSourceType, setVideoSourceType] = useState<'preset' | 'file' | 'url'>('file');
   const [selectedPresetIndex, setSelectedPresetIndex] = useState(0);
   const [customVideoUrl, setCustomVideoUrl] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [generatedThumbnail, setGeneratedThumbnail] = useState<string>('');
+
+  // Helper to extract a real video frame snapshot as thumbnail
+  const captureVideoThumbnail = (file: File): Promise<string> => {
+    return new Promise((resolve) => {
+      try {
+        const url = URL.createObjectURL(file);
+        const video = document.createElement('video');
+        video.src = url;
+        video.muted = true;
+        video.crossOrigin = 'anonymous';
+        video.currentTime = 0.5;
+        video.onloadeddata = () => {
+          video.currentTime = Math.min(1.0, (video.duration || 2) / 2);
+        };
+        video.onseeked = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth || 640;
+            canvas.height = video.videoHeight || 360;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+              const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+              URL.revokeObjectURL(url);
+              resolve(dataUrl);
+              return;
+            }
+          } catch {}
+          URL.revokeObjectURL(url);
+          resolve('');
+        };
+        video.onerror = () => {
+          URL.revokeObjectURL(url);
+          resolve('');
+        };
+      } catch {
+        resolve('');
+      }
+    });
+  };
 
   // Thumbnail source
   const [customThumbnailUrl, setCustomThumbnailUrl] = useState('');
@@ -307,11 +354,16 @@ export const ModerationDashboard: React.FC<ModerationDashboardProps> = ({
       let finalDuration = isShort ? currentPreset.duration : duration || currentPreset.duration;
       let finalDurationSec = isShort ? currentPreset.durationSec : 600;
 
-      if (videoSourceType === 'url' && customVideoUrl.trim()) {
-        finalVideoUrl = customVideoUrl.trim();
-      } else if (videoSourceType === 'file' && selectedFile) {
+      if (videoSourceType === 'file' && selectedFile) {
         setUploadProgress(45);
         finalVideoUrl = URL.createObjectURL(selectedFile);
+        if (generatedThumbnail) {
+          finalThumbUrl = generatedThumbnail;
+        } else if (!customThumbnailUrl.trim()) {
+          finalThumbUrl = 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&auto=format&fit=crop&q=80';
+        }
+      } else if (videoSourceType === 'url' && customVideoUrl.trim()) {
+        finalVideoUrl = customVideoUrl.trim();
       }
 
       if (customThumbnailUrl.trim()) {
@@ -342,6 +394,7 @@ export const ModerationDashboard: React.FC<ModerationDashboardProps> = ({
         isShort,
         isApproved: autoApprove,
         isPeerReviewed,
+        videoFile: selectedFile || undefined,
       });
 
       setUploadProgress(100);
@@ -564,25 +617,14 @@ export const ModerationDashboard: React.FC<ModerationDashboardProps> = ({
                 <div className="flex items-center gap-1 text-[11px]">
                   <button
                     type="button"
-                    onClick={() => setVideoSourceType('preset')}
-                    className={`px-2.5 py-1 rounded transition-colors cursor-pointer ${
-                      videoSourceType === 'preset'
-                        ? 'bg-[#ff9000] text-black font-bold'
-                        : 'text-neutral-400 hover:text-white'
-                    }`}
-                  >
-                    {isAmharic ? 'ቅድመ-ዝግጅት' : 'Curated Preset'}
-                  </button>
-                  <button
-                    type="button"
                     onClick={() => setVideoSourceType('file')}
-                    className={`px-2.5 py-1 rounded transition-colors cursor-pointer ${
+                    className={`px-3 py-1 rounded transition-colors cursor-pointer font-semibold ${
                       videoSourceType === 'file'
                         ? 'bg-[#ff9000] text-black font-bold'
                         : 'text-neutral-400 hover:text-white'
                     }`}
                   >
-                    {isAmharic ? 'ፋይል ምረጥ' : 'Local File'}
+                    {isAmharic ? 'ፋይል ምረጥ' : 'Upload Video File'}
                   </button>
                   <button
                     type="button"
@@ -595,73 +637,74 @@ export const ModerationDashboard: React.FC<ModerationDashboardProps> = ({
                   >
                     {isAmharic ? 'ቀጥታ አድራሻ (URL)' : 'Direct URL'}
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setVideoSourceType('preset')}
+                    className={`px-2.5 py-1 rounded transition-colors cursor-pointer text-neutral-500 hover:text-neutral-300 ${
+                      videoSourceType === 'preset'
+                        ? 'bg-neutral-800 text-white font-bold'
+                        : ''
+                    }`}
+                  >
+                    {isAmharic ? 'ናሙና ቅድመ-ዝግጅት' : 'Sample Presets'}
+                  </button>
                 </div>
               </div>
 
-              {videoSourceType === 'preset' && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 pt-1">
-                  {(uploadMode === 'short' ? SHORT_PRESETS : VIDEO_PRESETS).map((preset, idx) => (
-                    <div
-                      key={preset.name}
-                      onClick={() => {
-                        setSelectedPresetIndex(idx);
-                        if (!title) setTitle(preset.name);
-                        setCategory(preset.category);
+              {videoSourceType === 'file' && (
+                <div className="space-y-3 pt-1">
+                  <div className="flex flex-col sm:flex-row items-center gap-3">
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      accept="video/mp4,video/webm,video/quicktime,video/m4v"
+                      onChange={async (e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          const file = e.target.files[0];
+                          setSelectedFile(file);
+                          if (!title) {
+                            const name = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
+                            setTitle(name.charAt(0).toUpperCase() + name.slice(1));
+                          }
+                          const thumb = await captureVideoThumbnail(file);
+                          if (thumb) {
+                            setGeneratedThumbnail(thumb);
+                          }
+                        }
                       }}
-                      className={`p-2.5 rounded-xl border flex items-center gap-3 cursor-pointer transition-all ${
-                        selectedPresetIndex === idx
-                          ? 'bg-[#ff9000]/10 border-[#ff9000] text-white shadow-sm'
-                          : 'bg-neutral-900 border-neutral-800/80 text-neutral-400 hover:border-neutral-700'
-                      }`}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-full sm:w-auto px-4 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer border border-neutral-700"
                     >
+                      <Upload className="w-4 h-4 text-[#ff9000]" />
+                      <span>{selectedFile ? 'Change Selected Video' : 'Choose Video File from Device (.mp4, .webm, .mov)'}</span>
+                    </button>
+                    {selectedFile ? (
+                      <div className="text-emerald-400 font-mono text-[11px] truncate flex-1">
+                        Selected: {selectedFile.name} ({(selectedFile.size / (1024 * 1024)).toFixed(1)} MB)
+                      </div>
+                    ) : (
+                      <span className="text-neutral-500 text-[11px]">
+                        Select any video file directly from your device. It will be stored reliably in the database and browser storage.
+                      </span>
+                    )}
+                  </div>
+
+                  {generatedThumbnail && (
+                    <div className="flex items-center gap-3 p-2 bg-neutral-900/80 rounded-lg border border-neutral-800">
                       <img
-                        src={preset.thumbnailUrl}
-                        alt=""
-                        className="w-12 h-10 object-cover rounded-md shrink-0 border border-neutral-700"
+                        src={generatedThumbnail}
+                        alt="Extracted video frame"
+                        className="w-20 h-12 object-cover rounded border border-neutral-700 shadow-sm"
                       />
-                      <div className="truncate">
-                        <p className="font-semibold text-white truncate text-[11px]">{preset.name}</p>
-                        <p className="text-[10px] text-neutral-400">{preset.category} · {preset.duration}</p>
+                      <div className="text-[11px] text-neutral-300">
+                        <span className="text-emerald-400 font-semibold block">Automatic Video Poster Frame Generated</span>
+                        <span className="text-neutral-500 text-[10px]">Captured from your uploaded video. No dummy placeholders used.</span>
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
-
-              {videoSourceType === 'file' && (
-                <div className="flex flex-col sm:flex-row items-center gap-3 pt-1">
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    accept="video/mp4,video/webm,video/quicktime,video/m4v"
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files[0]) {
-                        const file = e.target.files[0];
-                        setSelectedFile(file);
-                        if (!title) {
-                          const name = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
-                          setTitle(name.charAt(0).toUpperCase() + name.slice(1));
-                        }
-                      }
-                    }}
-                    className="hidden"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="w-full sm:w-auto px-4 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                  >
-                    <Upload className="w-4 h-4 text-[#ff9000]" />
-                    <span>{selectedFile ? 'Change Selected Video' : 'Choose Video File (.mp4, .webm)'}</span>
-                  </button>
-                  {selectedFile ? (
-                    <div className="text-emerald-400 font-mono text-[11px] truncate flex-1">
-                      Selected: {selectedFile.name} ({(selectedFile.size / (1024 * 1024)).toFixed(1)} MB)
-                    </div>
-                  ) : (
-                    <span className="text-neutral-500 text-[11px]">
-                      Select any video file directly from your device.
-                    </span>
                   )}
                 </div>
               )}
@@ -675,6 +718,39 @@ export const ModerationDashboard: React.FC<ModerationDashboardProps> = ({
                     placeholder="https://example.com/video.mp4"
                     className="w-full bg-neutral-900 border border-neutral-800 rounded-lg p-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-[#ff9000]"
                   />
+                </div>
+              )}
+
+              {videoSourceType === 'preset' && (
+                <div className="space-y-2 pt-1">
+                  <p className="text-[11px] text-neutral-400">Optional demo presets for quick testing:</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                    {(uploadMode === 'short' ? SHORT_PRESETS : VIDEO_PRESETS).map((preset, idx) => (
+                      <div
+                        key={preset.name}
+                        onClick={() => {
+                          setSelectedPresetIndex(idx);
+                          if (!title) setTitle(preset.name);
+                          setCategory(preset.category);
+                        }}
+                        className={`p-2.5 rounded-xl border flex items-center gap-3 cursor-pointer transition-all ${
+                          selectedPresetIndex === idx
+                            ? 'bg-[#ff9000]/10 border-[#ff9000] text-white shadow-sm'
+                            : 'bg-neutral-900 border-neutral-800/80 text-neutral-400 hover:border-neutral-700'
+                        }`}
+                      >
+                        <img
+                          src={preset.thumbnailUrl}
+                          alt=""
+                          className="w-12 h-10 object-cover rounded-md shrink-0 border border-neutral-700"
+                        />
+                        <div className="truncate">
+                          <p className="font-semibold text-white truncate text-[11px]">{preset.name}</p>
+                          <p className="text-[10px] text-neutral-400">{preset.category} · {preset.duration}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -899,6 +975,33 @@ export const ModerationDashboard: React.FC<ModerationDashboardProps> = ({
                 title="Refresh catalog"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${loadingVideos ? 'animate-spin' : ''}`} />
+              </button>
+
+              <button
+                onClick={() => {
+                  if (window.confirm('Do you want to clear all sample demo placeholders from the catalog? Only your real uploaded videos will remain.')) {
+                    clearAllPlaceholders();
+                    fetchAdminVideos();
+                    onVideoUploaded?.();
+                  }
+                }}
+                className="px-2.5 py-1 rounded-lg bg-red-950/60 hover:bg-red-900 border border-red-800/80 text-red-300 text-xs font-semibold cursor-pointer transition-all flex items-center gap-1 active:scale-95"
+                title="Remove default sample placeholders"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Clear Demo Placeholders</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  restorePlaceholders();
+                  fetchAdminVideos();
+                  onVideoUploaded?.();
+                }}
+                className="px-2 py-1 rounded-lg bg-neutral-950 hover:bg-neutral-800 border border-neutral-800 text-neutral-400 hover:text-white text-xs cursor-pointer transition-all active:scale-95"
+                title="Restore demo videos"
+              >
+                <span>Restore Demos</span>
               </button>
             </div>
           </div>

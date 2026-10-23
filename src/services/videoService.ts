@@ -3,6 +3,12 @@
 // 2. LocalStorage & Supabase fallback (when hosted statically e.g. Vercel without backend env vars)
 
 import { uploadVideoFileToSupabase, insertVideoToSupabase } from '../lib/supabase.ts';
+import {
+  saveVideoBlob,
+  getVideoBlob,
+  resolvePlayableVideoUrl,
+  deleteVideoBlob,
+} from '../utils/mediaStorage.ts';
 
 export interface VideoRecord {
   id: number;
@@ -319,6 +325,98 @@ export async function safeFetchJson<T>(
   }
 }
 
+const REMOVED_IDS_KEY = 'ethiohub_removed_video_ids_v2';
+const DEMO_PLACEHOLDER_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+// Read removed video IDs to ensure deleted placeholders NEVER return
+export function getRemovedVideoIds(): Set<number> {
+  if (typeof window === 'undefined') return new Set();
+  try {
+    const raw = localStorage.getItem(REMOVED_IDS_KEY);
+    if (!raw) return new Set();
+    return new Set(JSON.parse(raw));
+  } catch {
+    return new Set();
+  }
+}
+
+// Mark a video as permanently removed by admin
+export function markVideoRemoved(id: number): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const ids = getRemovedVideoIds();
+    ids.add(id);
+    localStorage.setItem(REMOVED_IDS_KEY, JSON.stringify(Array.from(ids)));
+  } catch {}
+}
+
+// Clear all demo/placeholder videos so the user has a 100% clean custom catalog
+export function clearAllPlaceholders(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const ids = getRemovedVideoIds();
+    DEMO_PLACEHOLDER_IDS.forEach((id) => ids.add(id));
+    localStorage.setItem(REMOVED_IDS_KEY, JSON.stringify(Array.from(ids)));
+  } catch {}
+}
+
+// Restore default demo videos if user wants them back
+export function restorePlaceholders(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const ids = getRemovedVideoIds();
+    DEMO_PLACEHOLDER_IDS.forEach((id) => ids.delete(id));
+    localStorage.setItem(REMOVED_IDS_KEY, JSON.stringify(Array.from(ids)));
+  } catch {}
+}
+
+// Increment video views persistently
+export async function recordVideoView(videoId: number, currentViews: number = 0): Promise<number> {
+  let newViews = currentViews + 1;
+
+  if (typeof window !== 'undefined') {
+    try {
+      const localVideos = getLocalVideos();
+      let found = false;
+      const updated = localVideos.map((v) => {
+        if (v.id === videoId) {
+          found = true;
+          const nextV = (v.views || currentViews || 0) + 1;
+          newViews = nextV;
+          return { ...v, views: nextV };
+        }
+        return v;
+      });
+
+      if (!found) {
+        // Override views for seed item locally
+        const seed = [...SEED_VIDEOS, ...SEED_SHORTS].find((v) => v.id === videoId);
+        if (seed) {
+          const nextV = (seed.views || currentViews || 0) + 1;
+          newViews = nextV;
+          updated.push({ ...seed, views: nextV });
+        }
+      }
+
+      localStorage.setItem(LOCAL_VIDEOS_KEY, JSON.stringify(updated));
+    } catch (e) {
+      console.warn('Failed to update views in storage:', e);
+    }
+  }
+
+  // Also sync with server if online
+  try {
+    const res = await safeFetchJson<{ success: boolean; views?: number }>(`/api/videos/${videoId}/view`, {
+      method: 'POST',
+    });
+    if (res.ok && res.data && typeof res.data.views === 'number') {
+      newViews = res.data.views;
+    }
+  } catch {}
+
+  return newViews;
+}
+
 // Read local user uploads from browser storage
 export function getLocalVideos(): VideoRecord[] {
   if (typeof window === 'undefined') return [];
@@ -364,20 +462,21 @@ export async function getCatalogVideos(params: {
   search?: string;
   sort?: string;
 }): Promise<VideoRecord[]> {
+  const removedIds = getRemovedVideoIds();
   const query = new URLSearchParams();
   if (params.sort) query.set('sort', params.sort);
   if (params.category && params.category !== 'All') query.set('category', params.category);
   if (params.search && params.search.trim()) query.set('search', params.search.trim());
 
-  const localUploads = getLocalVideos().filter((v) => !v.isShort && !v.isRemoved);
+  const localUploads = getLocalVideos().filter((v) => !v.isShort && !v.isRemoved && !removedIds.has(v.id));
   const result = await safeFetchJson<VideoRecord[]>(`/api/videos?${query.toString()}`);
 
   let baseList: VideoRecord[] = [];
   if (result.ok && Array.isArray(result.data)) {
-    baseList = result.data;
+    baseList = result.data.filter((v) => !removedIds.has(v.id));
   } else {
     // Fallback to rich seed list if backend is offline or static Vercel deployment
-    baseList = [...SEED_VIDEOS];
+    baseList = SEED_VIDEOS.filter((v) => !removedIds.has(v.id));
     if (params.category && params.category !== 'All') {
       baseList = baseList.filter((v) => v.category === params.category);
     }
@@ -408,47 +507,49 @@ export async function getCatalogVideos(params: {
     return true;
   });
 
-  return [...filteredLocal, ...baseList];
+  return [...filteredLocal, ...baseList].filter((v) => !removedIds.has(v.id));
 }
 
 /**
  * Fetch shorts reels catalog with local storage merge and fallback
  */
 export async function getShortsCatalog(): Promise<VideoRecord[]> {
-  const localShorts = getLocalVideos().filter((v) => v.isShort && !v.isRemoved);
+  const removedIds = getRemovedVideoIds();
+  const localShorts = getLocalVideos().filter((v) => v.isShort && !v.isRemoved && !removedIds.has(v.id));
   const result = await safeFetchJson<VideoRecord[]>('/api/shorts');
 
   let baseList: VideoRecord[] = [];
   if (result.ok && Array.isArray(result.data)) {
-    baseList = result.data;
+    baseList = result.data.filter((v) => !removedIds.has(v.id));
   } else {
-    baseList = [...SEED_SHORTS];
+    baseList = SEED_SHORTS.filter((v) => !removedIds.has(v.id));
   }
 
   const existingIds = new Set(baseList.map((v) => v.id));
   const filteredLocal = localShorts.filter((v) => !existingIds.has(v.id));
 
-  return [...filteredLocal, ...baseList];
+  return [...filteredLocal, ...baseList].filter((v) => !removedIds.has(v.id));
 }
 
 /**
  * Fetch all videos for Admin Management (including shorts and all categories)
  */
 export async function getAdminVideosCatalog(): Promise<VideoRecord[]> {
-  const localVideos = getLocalVideos();
+  const removedIds = getRemovedVideoIds();
+  const localVideos = getLocalVideos().filter((v) => !removedIds.has(v.id));
   const result = await safeFetchJson<VideoRecord[]>('/api/admin/videos');
 
   let baseList: VideoRecord[] = [];
   if (result.ok && Array.isArray(result.data)) {
-    baseList = result.data;
+    baseList = result.data.filter((v) => !removedIds.has(v.id));
   } else {
-    baseList = [...SEED_VIDEOS, ...SEED_SHORTS];
+    baseList = [...SEED_VIDEOS, ...SEED_SHORTS].filter((v) => !removedIds.has(v.id));
   }
 
   const existingIds = new Set(baseList.map((v) => v.id));
   const filteredLocal = localVideos.filter((v) => !existingIds.has(v.id));
 
-  return [...filteredLocal, ...baseList];
+  return [...filteredLocal, ...baseList].filter((v) => !removedIds.has(v.id));
 }
 
 /**
@@ -483,6 +584,7 @@ export async function publishVideo(payload: {
   videoData?: string | null;
   mimeType?: string;
   fileSize?: number;
+  videoFile?: Blob | File;
 }): Promise<{ success: boolean; video: VideoRecord; mode: 'server' | 'local' }> {
   const cleanPayload = {
     ...payload,
@@ -508,6 +610,9 @@ export async function publishVideo(payload: {
   });
 
   if (res.ok && res.data) {
+    if (payload.videoFile) {
+      await saveVideoBlob(res.data.id, payload.videoFile);
+    }
     saveLocalVideo(res.data);
     return { success: true, video: res.data, mode: 'server' };
   }
@@ -547,6 +652,10 @@ export async function publishVideo(payload: {
     createdAt: new Date().toISOString(),
   };
 
+  if (payload.videoFile) {
+    await saveVideoBlob(localVideo.id, payload.videoFile);
+  }
+
   // Save to browser storage
   saveLocalVideo(localVideo);
 
@@ -575,10 +684,14 @@ export async function publishVideo(payload: {
 }
 
 /**
- * Remove / Delete Video with dual mode
+ * Remove / Delete Video with dual mode and persistent blob cleanup
  */
 export async function removeVideoItem(videoId: number): Promise<boolean> {
+  markVideoRemoved(videoId);
   deleteLocalVideo(videoId);
+  try {
+    await deleteVideoBlob(videoId);
+  } catch {}
   try {
     const res = await safeFetchJson(`/api/videos/${videoId}`, { method: 'DELETE' });
     return res.ok;

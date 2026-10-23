@@ -147,6 +147,21 @@ app.get('/api/videos/:id', optionalAuth, async (req: AuthRequest, res) => {
   }
 });
 
+// Increment video views
+app.post('/api/videos/:id/view', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!isNaN(id)) {
+      await incrementVideoViews(id);
+      const video = await getVideoById(id);
+      return res.json({ success: true, views: video?.views || 1 });
+    }
+    res.json({ success: true, views: 1 });
+  } catch (err: any) {
+    res.json({ success: true });
+  }
+});
+
 // Upload educational video with AES encryption metadata
 app.post('/api/videos/upload', async (req, res) => {
   try {

@@ -3,6 +3,8 @@ import { VideoItem } from './VideoCard.tsx';
 import { useAuth } from '../context/AuthContext.tsx';
 import { useNotifications } from '../context/NotificationContext.tsx';
 import { useLanguage } from '../context/LanguageContext.tsx';
+import { resolvePlayableVideoUrl } from '../utils/mediaStorage.ts';
+import { recordVideoView } from '../services/videoService.ts';
 import {
   X,
   ThumbsUp,
@@ -46,6 +48,7 @@ export const ReelPlayerModal: React.FC<ReelPlayerModalProps> = ({
   const [newComment, setNewComment] = useState('');
   const [likesMap, setLikesMap] = useState<{ [id: number]: number }>({});
   const [userVoteMap, setUserVoteMap] = useState<{ [id: number]: 'like' | 'dislike' | null }>({});
+  const [playableUrl, setPlayableUrl] = useState<string>('');
 
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -54,6 +57,20 @@ export const ReelPlayerModal: React.FC<ReelPlayerModalProps> = ({
   }, [initialIndex]);
 
   const currentShort = shorts[currentIndex];
+
+  useEffect(() => {
+    if (!currentShort) return;
+    let active = true;
+    resolvePlayableVideoUrl(currentShort.id, currentShort.videoUrl).then((url) => {
+      if (active) {
+        setPlayableUrl(url);
+      }
+    });
+    recordVideoView(currentShort.id, currentShort.views || 0);
+    return () => {
+      active = false;
+    };
+  }, [currentShort?.id, currentShort?.videoUrl]);
 
   useEffect(() => {
     if (currentShort && !likesMap[currentShort.id]) {
@@ -67,7 +84,7 @@ export const ReelPlayerModal: React.FC<ReelPlayerModalProps> = ({
       videoRef.current.play().catch(() => {});
       setIsPlaying(true);
     }
-  }, [currentIndex]);
+  }, [currentIndex, playableUrl]);
 
   // Keyboard navigation (Escape, Up, Down)
   useEffect(() => {
@@ -181,7 +198,7 @@ export const ReelPlayerModal: React.FC<ReelPlayerModalProps> = ({
         <div className="relative w-full h-full bg-black rounded-2xl overflow-hidden border border-neutral-800 shadow-2xl flex items-center justify-center select-none">
           <video
             ref={videoRef}
-            src={currentShort.videoUrl}
+            src={playableUrl || currentShort.videoUrl}
             poster={currentShort.thumbnailUrl}
             loop
             muted={isMuted}

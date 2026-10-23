@@ -4,6 +4,8 @@ import { useAuth } from '../context/AuthContext.tsx';
 import { useNotifications } from '../context/NotificationContext.tsx';
 import { useLanguage } from '../context/LanguageContext.tsx';
 import { ReportModal } from './ReportModal.tsx';
+import { resolvePlayableVideoUrl } from '../utils/mediaStorage.ts';
+import { recordVideoView } from '../services/videoService.ts';
 import {
   ThumbsUp,
   ThumbsDown,
@@ -52,6 +54,12 @@ export const VideoPlayerView: React.FC<VideoPlayerViewProps> = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const [currentTimeSec, setCurrentTimeSec] = useState(0);
 
+  // Playable URL resolved from IndexedDB blob or remote URL
+  const [playableUrl, setPlayableUrl] = useState<string>(video.videoUrl);
+
+  // Dynamic Views counter
+  const [views, setViews] = useState<number>(video.views || 0);
+
   // Votes
   const [likes, setLikes] = useState(video.likes || 0);
   const [dislikes, setDislikes] = useState(video.dislikes || 0);
@@ -85,10 +93,40 @@ export const VideoPlayerView: React.FC<VideoPlayerViewProps> = ({
   };
 
   useEffect(() => {
+    let active = true;
+    let urlToRevoke: string | null = null;
+
+    // Resolve persistent playable video URL from IndexedDB or remote URL
+    resolvePlayableVideoUrl(video.id, video.videoUrl).then((resolvedUrl) => {
+      if (active) {
+        setPlayableUrl(resolvedUrl);
+        if (resolvedUrl.startsWith('blob:') && resolvedUrl !== video.videoUrl) {
+          urlToRevoke = resolvedUrl;
+        }
+      }
+    });
+
+    // Record persistent view and update view state immediately
+    setViews(video.views || 0);
+    recordVideoView(video.id, video.views || 0).then((updatedViews) => {
+      if (active && typeof updatedViews === 'number') {
+        setViews(updatedViews);
+      }
+    });
+
     loadComments();
     setLikes(video.likes || 0);
     setDislikes(video.dislikes || 0);
-  }, [video.id]);
+
+    return () => {
+      active = false;
+      if (urlToRevoke) {
+        try {
+          URL.revokeObjectURL(urlToRevoke);
+        } catch {}
+      }
+    };
+  }, [video.id, video.videoUrl]);
 
   const handleTimeUpdate = () => {
     if (videoRef.current) {
@@ -214,7 +252,7 @@ export const VideoPlayerView: React.FC<VideoPlayerViewProps> = ({
           <div className="relative aspect-video w-full bg-black rounded-xl overflow-hidden border border-neutral-800 shadow-2xl">
             <video
               ref={videoRef}
-              src={video.videoUrl}
+              src={playableUrl}
               poster={video.thumbnailUrl}
               controls
               autoPlay
@@ -229,7 +267,7 @@ export const VideoPlayerView: React.FC<VideoPlayerViewProps> = ({
 
             <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
               <div className="flex items-center gap-2 text-neutral-400">
-                <span className="font-semibold text-neutral-200">{video.views.toLocaleString()} {t.views}</span>
+                <span className="font-semibold text-neutral-200">{views.toLocaleString()} {t.views}</span>
                 <span aria-hidden="true">·</span>
                 <span>{video.category}</span>
                 <span aria-hidden="true">·</span>

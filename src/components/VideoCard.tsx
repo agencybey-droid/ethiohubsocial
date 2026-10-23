@@ -89,6 +89,9 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, onSelect }) => {
         <img
           src={isHovered && video.previewUrl ? video.previewUrl : video.thumbnailUrl}
           alt={video.title}
+          onError={(e) => {
+            (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&auto=format&fit=crop&q=80';
+          }}
           className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
         />
 
