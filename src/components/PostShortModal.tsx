@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext.tsx';
 import { useNotifications } from '../context/NotificationContext.tsx';
 import { useLanguage } from '../context/LanguageContext.tsx';
 import { X, Sparkles, AlertCircle, PlusCircle, Film } from 'lucide-react';
+import { publishVideo } from '../services/videoService.ts';
 
 interface PostShortModalProps {
   isOpen: boolean;
@@ -76,29 +77,25 @@ export const PostShortModal: React.FC<PostShortModalProps> = ({ isOpen, onClose,
     let finalThumb = preset.thumbnailUrl;
 
     try {
-      const res = await fetch('/api/videos/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: title.trim(),
-          description: `Short reel: ${title.trim()}`,
-          videoUrl: finalVideoUrl,
-          thumbnailUrl: finalThumb,
-          previewUrl: finalThumb,
-          duration: preset.duration,
-          durationSec: preset.durationSec,
-          category,
-          tags: JSON.stringify(['Shorts', category, 'Reel']),
-          educatorId: user?.uid || 'user-creator-1',
-          educatorName: user?.displayName || 'Creator',
-          educatorAvatar: user?.avatarUrl,
-          accessLevel: 'public',
-          isEncrypted: false,
-          isShort: true,
-        }),
+      const result = await publishVideo({
+        title: title.trim(),
+        description: `Short reel: ${title.trim()}`,
+        videoUrl: finalVideoUrl,
+        thumbnailUrl: finalThumb,
+        previewUrl: finalThumb,
+        duration: preset.duration,
+        durationSec: preset.durationSec,
+        category,
+        tags: ['Shorts', category, 'Reel'],
+        educatorId: user?.uid || 'user-creator-1',
+        educatorName: user?.displayName || 'Creator',
+        educatorAvatar: user?.avatarUrl,
+        accessLevel: 'public',
+        isEncrypted: false,
+        isShort: true,
       });
 
-      if (res.ok) {
+      if (result.success) {
         triggerRealtimeNotification(
           isAmharic ? 'አጭር ቪዲዮ በተሳካ ሁኔታ ተለጥፏል' : 'Short Reel Published!',
           `"${title}" ${isAmharic ? 'በአጫጭር ቪዲዮዎች ክፍል ውስጥ ተለጥፏል' : 'is now live in the Shorts section!'}`,
@@ -106,9 +103,6 @@ export const PostShortModal: React.FC<PostShortModalProps> = ({ isOpen, onClose,
         );
         onSuccess();
         onClose();
-      } else {
-        const data = await res.json();
-        setError(data.error || 'Failed to post reel');
       }
     } catch (err: any) {
       setError(err.message || 'Network error while posting reel');

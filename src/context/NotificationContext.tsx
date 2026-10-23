@@ -76,7 +76,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     if (!user) return;
     try {
       const res = await fetch(`/api/notifications?userId=${user.uid}`);
-      if (res.ok) {
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
         const data = await res.json();
         setNotifications(data);
       }
@@ -141,7 +142,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             videoId,
           }),
         });
-        if (res.ok) {
+        const contentType = res.headers.get('content-type') || '';
+        if (res.ok && contentType.includes('application/json')) {
           const created = await res.json();
           setNotifications((prev) => [created, ...prev]);
         }

@@ -102,9 +102,9 @@ export const Footer: React.FC<FooterProps> = ({ onNavChange, onOpenPermissions }
               <span className="hover:text-amber-400 transition-colors cursor-pointer">{t.footerUploadGuide}</span>
             </li>
             <li>
-              <button onClick={() => onNavChange('moderation')} className="hover:text-amber-400 transition-colors cursor-pointer">
+              <span className="hover:text-amber-400 transition-colors cursor-pointer">
                 {t.footerModeration}
-              </button>
+              </span>
             </li>
           </ul>
         </div>

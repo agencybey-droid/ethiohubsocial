@@ -1,15 +1,9 @@
 import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext.tsx';
 import { useNotifications } from '../context/NotificationContext.tsx';
 import { useLanguage } from '../context/LanguageContext.tsx';
 import {
   Search,
-  Upload,
   Bell,
-  Shield,
-  ShieldAlert,
-  LogOut,
-  Sparkles,
   Menu,
   X,
   Volume2,
@@ -21,9 +15,9 @@ interface HeaderProps {
   onSearchChange: (q: string) => void;
   activeNav: string;
   onNavChange: (nav: string) => void;
-  onOpenUpload: () => void;
-  onOpenPermissions: () => void;
-  pendingReportsCount: number;
+  onOpenUpload?: () => void;
+  onOpenPermissions?: () => void;
+  pendingReportsCount?: number;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -31,11 +25,7 @@ export const Header: React.FC<HeaderProps> = ({
   onSearchChange,
   activeNav,
   onNavChange,
-  onOpenUpload,
-  onOpenPermissions,
-  pendingReportsCount,
 }) => {
-  const { user, signInWithGoogle, signOut } = useAuth();
   const { language, setLanguage, t } = useLanguage();
   const {
     notifications,
@@ -49,21 +39,7 @@ export const Header: React.FC<HeaderProps> = ({
   } = useNotifications();
 
   const [showNotificationDrawer, setShowNotificationDrawer] = useState(false);
-  const [showUserMenu, setShowUserMenu] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  const getRoleLabel = () => {
-    switch (user?.role) {
-      case 'admin':
-        return 'Admin';
-      case 'moderator':
-        return 'Moderator';
-      case 'educator':
-        return 'Creator';
-      default:
-        return 'Member';
-    }
-  };
 
   return (
     <header className="sticky top-0 z-40 bg-neutral-950/95 border-b border-neutral-800/80 backdrop-blur-md">
@@ -213,91 +189,6 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </div>
 
-          {/* Upload Button */}
-          <button
-            onClick={onOpenUpload}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#ff9000] hover:bg-[#ffa31a] active:bg-[#e68200] active:scale-[0.98] text-black text-xs font-bold transition-all duration-150 cursor-pointer shadow-sm"
-            title={t.upload}
-          >
-            <Upload className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">{t.upload}</span>
-          </button>
-
-          {/* User Profile / Role */}
-          <button
-            onClick={onOpenPermissions}
-            className="flex items-center gap-2 p-1.5 sm:px-3 sm:py-1.5 rounded-md bg-[#16161b] hover:bg-[#202026] active:bg-[#121216] active:scale-[0.98] border border-neutral-800 transition-all duration-150 cursor-pointer"
-            title={t.myAccount}
-          >
-            {user?.avatarUrl ? (
-              <img
-                src={user.avatarUrl}
-                alt=""
-                className="w-6 h-6 rounded-full object-cover border border-amber-500/60"
-              />
-            ) : (
-              <div className="w-6 h-6 rounded-full bg-[#ff9000] text-black font-bold flex items-center justify-center text-[10px]">
-                {getRoleLabel()[0]}
-              </div>
-            )}
-            <div className="hidden md:flex flex-col text-left">
-              <span className="text-[11px] font-bold text-white truncate max-w-[90px]">
-                {user?.displayName || 'User'}
-              </span>
-              <span className="text-[9px] font-mono text-amber-400 uppercase tracking-tight">
-                {getRoleLabel()}
-              </span>
-            </div>
-          </button>
-
-          <button
-            onClick={() => setShowUserMenu(!showUserMenu)}
-            className="text-neutral-400 hover:text-white p-1 text-xs cursor-pointer active:scale-90 transition-transform"
-          >
-            ▼
-          </button>
-
-          {showUserMenu && (
-            <div className="absolute right-4 top-16 w-52 bg-[#16161b] border border-neutral-800 rounded-lg shadow-2xl p-2 z-50 text-xs space-y-1">
-              <div className="p-2 border-b border-neutral-800 text-neutral-400">
-                <p className="font-semibold text-white truncate">{user?.displayName}</p>
-                <p className="text-[10px] truncate">{user?.email}</p>
-              </div>
-
-              <button
-                onClick={() => {
-                  onOpenPermissions();
-                  setShowUserMenu(false);
-                }}
-                className="w-full text-left px-2.5 py-1.5 rounded hover:bg-neutral-800 active:bg-neutral-700 text-neutral-200 flex items-center gap-2 cursor-pointer transition-colors"
-              >
-                <Shield className="w-3.5 h-3.5 text-amber-400" />
-                <span>{t.myAccount}</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  signInWithGoogle();
-                  setShowUserMenu(false);
-                }}
-                className="w-full text-left px-2.5 py-1.5 rounded hover:bg-neutral-800 active:bg-neutral-700 text-neutral-200 flex items-center gap-2 cursor-pointer transition-colors"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-sky-400" />
-                <span>{t.signIn} (Google)</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  signOut();
-                  setShowUserMenu(false);
-                }}
-                className="w-full text-left px-2.5 py-1.5 rounded hover:bg-neutral-800 active:bg-neutral-700 text-red-400 flex items-center gap-2 cursor-pointer transition-colors"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span>{t.signOut}</span>
-              </button>
-            </div>
-          )}
         </div>
       </div>
 
@@ -343,26 +234,6 @@ export const Header: React.FC<HeaderProps> = ({
             }`}
           >
             {t.navCategories}
-          </button>
-
-          {/* Moderation Board Link */}
-          {/* Admin & Moderation Portal Link */}
-          <button
-            onClick={() => onNavChange('moderation')}
-            className={`ml-auto px-3 py-1 rounded transition-all duration-150 active:scale-[0.97] cursor-pointer flex items-center gap-1.5 ${
-              activeNav === 'moderation'
-                ? 'bg-[#ff9000] text-black font-bold shadow-sm'
-                : 'text-neutral-400 hover:text-amber-400'
-            }`}
-            title="Admin Portal - Upload videos, manage catalog, review reports"
-          >
-            <Shield className="w-3.5 h-3.5" />
-            <span>{t.navAdmin || 'Admin'}</span>
-            {pendingReportsCount > 0 && (
-              <span className="px-1.5 py-0.2 bg-red-600 text-white rounded-full text-[10px] font-mono">
-                {pendingReportsCount}
-              </span>
-            )}
           </button>
         </div>
       </div>

@@ -74,7 +74,8 @@ export const VideoPlayerView: React.FC<VideoPlayerViewProps> = ({
   const loadComments = async () => {
     try {
       const res = await fetch(`/api/videos/${video.id}/comments`);
-      if (res.ok) {
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
         const data = await res.json();
         setComments(data);
       }
@@ -113,11 +114,16 @@ export const VideoPlayerView: React.FC<VideoPlayerViewProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.uid, voteType: type }),
       });
-      if (res.ok) {
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
         const data = await res.json();
         setUserVote(data.voteType);
         if (data.likes !== undefined) setLikes(data.likes);
         if (data.dislikes !== undefined) setDislikes(data.dislikes);
+      } else {
+        setUserVote(type);
+        if (type === 'like') setLikes((prev) => prev + 1);
+        else setDislikes((prev) => prev + 1);
       }
     } catch (e) {
       console.warn('Vote failed:', e);
@@ -143,17 +149,36 @@ export const VideoPlayerView: React.FC<VideoPlayerViewProps> = ({
         }),
       });
 
-      if (res.ok) {
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
         setNewComment('');
         setAttachTimestamp(false);
         loadComments();
-        triggerRealtimeNotification(
-          'Comment Added',
-          `Your comment was added to "${video.title}".`,
-          'interaction',
-          video.id
-        );
+      } else {
+        const localCommentItem: CommentItem = {
+          id: Date.now(),
+          videoId: video.id,
+          userId: user?.uid || 'user-default',
+          userName: user?.displayName || 'User',
+          userAvatar: user?.avatarUrl || undefined,
+          userRole: user?.role || 'student',
+          content: newComment,
+          timestampSec: attachTimestamp ? currentTimeSec : 0,
+          likes: 0,
+          isPinned: false,
+          createdAt: new Date().toISOString(),
+        };
+        setComments((prev) => [localCommentItem, ...prev]);
+        setNewComment('');
+        setAttachTimestamp(false);
       }
+
+      triggerRealtimeNotification(
+        'Comment Added',
+        `Your comment was added to "${video.title}".`,
+        'interaction',
+        video.id
+      );
     } catch (err) {
       console.warn('Post comment failed:', err);
     } finally {

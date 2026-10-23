@@ -6,15 +6,13 @@ import { Header } from './components/Header.tsx';
 import { VideoCard, VideoItem } from './components/VideoCard.tsx';
 import { VideoPlayerView } from './components/VideoPlayerView.tsx';
 import { ModerationDashboard } from './components/ModerationDashboard.tsx';
-import { UploadModal } from './components/UploadModal.tsx';
-import { AdminPermissionsModal } from './components/AdminPermissionsModal.tsx';
 import { ToastContainer } from './components/ToastContainer.tsx';
 import { Footer } from './components/Footer.tsx';
 import { AgeGateModal } from './components/AgeGateModal.tsx';
 import { ShortsSection } from './components/ShortsSection.tsx';
 import { ReelPlayerModal } from './components/ReelPlayerModal.tsx';
-import { PostShortModal } from './components/PostShortModal.tsx';
-import { RefreshCw, Search } from 'lucide-react';
+import { RefreshCw, Search, Shield, ArrowLeft } from 'lucide-react';
+import { getCatalogVideos, getShortsCatalog } from './services/videoService.ts';
 
 const CATEGORIES_CONFIG = [
   { key: 'catAll', value: 'All' },
@@ -26,6 +24,12 @@ const CATEGORIES_CONFIG = [
   { key: 'catMedical', value: 'Medical' },
 ];
 
+const checkIsAdminRoute = () => {
+  if (typeof window === 'undefined') return false;
+  const path = window.location.pathname.toLowerCase().replace(/\/+$/, '');
+  return path === '/admin';
+};
+
 const MainContent: React.FC = () => {
   const { t } = useLanguage();
   const [videos, setVideos] = useState<VideoItem[]>([]);
@@ -33,38 +37,46 @@ const MainContent: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [selectedVideo, setSelectedVideo] = useState<VideoItem | null>(null);
 
+  // Dedicated URL-based Admin route (/admin)
+  const [isAdminRoute, setIsAdminRoute] = useState<boolean>(() => checkIsAdminRoute());
+
   // Shorts / Reels states
   const [selectedShortIndex, setSelectedShortIndex] = useState<number | null>(null);
-  const [showPostShortModal, setShowPostShortModal] = useState(false);
 
   // Filters & Navigation
   const [activeNav, setActiveNav] = useState('home');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'trending' | 'top_rated' | 'newest'>('trending');
-  // Modals
-  const [showUploadModal, setShowUploadModal] = useState(false);
-  const [showPermissionsModal, setShowPermissionsModal] = useState(false);
 
   // Stats & Reports count
   const [pendingReportsCount, setPendingReportsCount] = useState(0);
 
+  // Listen to browser URL changes (e.g. user types /admin or hits back/forward)
+  useEffect(() => {
+    const handleUrlChange = () => {
+      setIsAdminRoute(checkIsAdminRoute());
+    };
+    window.addEventListener('popstate', handleUrlChange);
+    return () => window.removeEventListener('popstate', handleUrlChange);
+  }, []);
+
+  const navigateToHome = () => {
+    window.history.pushState({}, '', '/');
+    setIsAdminRoute(false);
+    setSelectedVideo(null);
+    setActiveNav('home');
+  };
+
   const fetchVideos = useCallback(async () => {
     setLoading(true);
     try {
-      let url = `/api/videos?sort=${sortBy}`;
-      if (selectedCategory !== 'All') {
-        url += `&category=${encodeURIComponent(selectedCategory)}`;
-      }
-      if (searchQuery.trim()) {
-        url += `&search=${encodeURIComponent(searchQuery.trim())}`;
-      }
-
-      const res = await fetch(url);
-      if (res.ok) {
-        const data = await res.json();
-        setVideos(data);
-      }
+      const data = await getCatalogVideos({
+        category: selectedCategory,
+        search: searchQuery,
+        sort: sortBy,
+      });
+      setVideos(data as any);
     } catch (e) {
       console.warn('Failed to load videos:', e);
     } finally {
@@ -74,11 +86,8 @@ const MainContent: React.FC = () => {
 
   const fetchShorts = useCallback(async () => {
     try {
-      const res = await fetch('/api/shorts');
-      if (res.ok) {
-        const data = await res.json();
-        setShorts(data);
-      }
+      const data = await getShortsCatalog();
+      setShorts(data as any);
     } catch (e) {
       console.warn('Failed to load shorts:', e);
     }
@@ -87,7 +96,8 @@ const MainContent: React.FC = () => {
   const fetchStats = async () => {
     try {
       const res = await fetch('/api/stats');
-      if (res.ok) {
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
         const data = await res.json();
         setPendingReportsCount(data.openReportsCount || 0);
       }
@@ -112,6 +122,66 @@ const MainContent: React.FC = () => {
     }
   };
 
+  // Dedicated Admin Page (accessible only by going to /admin in URL)
+  if (isAdminRoute) {
+    return (
+      <div className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col font-sans selection:bg-[#ff9000] selection:text-black">
+        {/* Dedicated Admin Header */}
+        <header className="sticky top-0 z-40 bg-[#0c0c10] border-b border-neutral-800/90 backdrop-blur-md px-4 py-3 shadow-lg">
+          <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={navigateToHome}
+                className="flex items-center gap-1 cursor-pointer select-none group"
+                title="Return to Public Hub"
+              >
+                <span className="text-xl font-black tracking-tight text-white group-hover:text-amber-400 transition-colors">
+                  ethio
+                </span>
+                <span className="bg-[#ff9000] text-black font-black text-xl px-1.5 py-0.5 rounded tracking-tight shadow-sm">
+                  hub
+                </span>
+              </button>
+              <span className="text-neutral-700 font-mono text-sm hidden sm:inline">/</span>
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#ff9000]/15 border border-[#ff9000]/40 text-[#ff9000] text-xs font-mono font-bold">
+                <Shield className="w-3.5 h-3.5" />
+                <span>ADMIN CONSOLE (/admin)</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={navigateToHome}
+                className="px-3.5 py-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 text-neutral-200 text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer active:scale-95 shadow-sm"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Return to Public Site</span>
+              </button>
+            </div>
+          </div>
+        </header>
+
+        {/* Dedicated Admin Dashboard */}
+        <main className="flex-1 py-4">
+          <ModerationDashboard
+            onInspectVideo={(vId) => {
+              const target = videos.find((v) => v.id === vId);
+              if (target) {
+                setSelectedVideo(target);
+                setIsAdminRoute(false);
+              }
+            }}
+            onVideoUploaded={() => {
+              fetchVideos();
+              fetchShorts();
+              fetchStats();
+            }}
+          />
+        </main>
+      </div>
+    );
+  }
+
   // Split regular videos so shorts section is placed in the middle
   const firstBatch = videos.slice(0, 3);
   const secondBatch = videos.slice(3);
@@ -121,15 +191,12 @@ const MainContent: React.FC = () => {
       {/* 18+ Age Verification Entrance Modal */}
       <AgeGateModal />
 
-      {/* Top Header */}
+      {/* Top Header without Upload or Member icons */}
       <Header
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         activeNav={activeNav}
         onNavChange={handleNavChange}
-        onOpenUpload={() => setShowUploadModal(true)}
-        onOpenPermissions={() => setShowPermissionsModal(true)}
-        pendingReportsCount={pendingReportsCount}
       />
 
       {/* Main View Router */}
@@ -140,18 +207,6 @@ const MainContent: React.FC = () => {
             onBack={() => setSelectedVideo(null)}
             onSelectRelated={(v) => setSelectedVideo(v)}
             allVideos={videos}
-          />
-        ) : activeNav === 'moderation' ? (
-          <ModerationDashboard
-            onInspectVideo={(vId) => {
-              const target = videos.find((v) => v.id === vId);
-              if (target) setSelectedVideo(target);
-            }}
-            onVideoUploaded={() => {
-              fetchVideos();
-              fetchShorts();
-              fetchStats();
-            }}
           />
         ) : (
           /* Catalog Browse View */
@@ -262,7 +317,6 @@ const MainContent: React.FC = () => {
                 <ShortsSection
                   shorts={shorts}
                   onSelectShort={(_, index) => setSelectedShortIndex(index)}
-                  onOpenPostShort={() => setShowPostShortModal(true)}
                 />
 
                 {/* Remaining Batch of Videos */}
@@ -280,7 +334,7 @@ const MainContent: React.FC = () => {
       </main>
 
       {/* Professional Multi-Column Footer */}
-      <Footer onNavChange={handleNavChange} onOpenPermissions={() => setShowPermissionsModal(true)} />
+      <Footer onNavChange={handleNavChange} onOpenPermissions={() => {}} />
 
       {/* Modals & Toasts */}
       <ToastContainer />
@@ -305,31 +359,6 @@ const MainContent: React.FC = () => {
           }}
         />
       )}
-
-      {/* Post Short Reel Modal */}
-      <PostShortModal
-        isOpen={showPostShortModal}
-        onClose={() => setShowPostShortModal(false)}
-        onSuccess={() => {
-          fetchShorts();
-          fetchStats();
-        }}
-      />
-
-      {/* Upload Regular Lecture Modal */}
-      <UploadModal
-        isOpen={showUploadModal}
-        onClose={() => setShowUploadModal(false)}
-        onSuccess={() => {
-          fetchVideos();
-          fetchStats();
-        }}
-      />
-
-      <AdminPermissionsModal
-        isOpen={showPermissionsModal}
-        onClose={() => setShowPermissionsModal(false)}
-      />
     </div>
   );
 };

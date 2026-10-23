@@ -6,6 +6,7 @@ import {
   uploadVideoFileToSupabase,
   insertVideoToSupabase,
 } from '../lib/supabase.ts';
+import { publishVideo } from '../services/videoService.ts';
 import {
   Upload,
   Lock,
@@ -163,57 +164,34 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
         durationSec = 720;
       }
 
-      // 1. Post to App API Server & PostgreSQL database
-      const res = await fetch('/api/videos/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: title.trim(),
-          description: description.trim(),
-          videoUrl: finalVideoUrl,
-          thumbnailUrl: finalThumbnailUrl,
-          previewUrl: finalThumbnailUrl,
-          duration,
-          durationSec,
-          category,
-          tags: [category, 'ethiohub', isPeerReviewed ? 'Peer-Reviewed' : 'Academic'],
-          educatorId: user?.uid || 'creator-default',
-          educatorName: user?.displayName || 'Verified Creator',
-          educatorAvatar: user?.avatarUrl,
-          accessLevel,
-          isEncrypted: enableEncryption,
-          encryptionAlgorithm: encryptionResult?.algorithm || 'AES-256-GCM',
-          encryptionKeyId: encryptionResult ? `key_${encryptionResult.keyFingerprint}` : undefined,
-          encryptionHash: encryptionResult?.hash || undefined,
-          isPeerReviewed,
-          isSupabaseStored: Boolean(selectedVideoFile),
-          supabasePath: selectedVideoFile ? supabasePath : undefined,
-          supabaseBucket: selectedVideoFile ? 'videos' : undefined,
-          supabaseUrl: selectedVideoFile ? finalVideoUrl : undefined,
-          fileSize,
-          mimeType,
-        }),
+      const result = await publishVideo({
+        title: title.trim(),
+        description: description.trim(),
+        videoUrl: finalVideoUrl,
+        thumbnailUrl: finalThumbnailUrl,
+        previewUrl: finalThumbnailUrl,
+        duration,
+        durationSec,
+        category,
+        tags: [category, 'ethiohub', isPeerReviewed ? 'Peer-Reviewed' : 'Academic'],
+        educatorId: user?.uid || 'creator-default',
+        educatorName: user?.displayName || 'Verified Creator',
+        educatorAvatar: user?.avatarUrl,
+        accessLevel,
+        isEncrypted: enableEncryption,
+        encryptionAlgorithm: encryptionResult?.algorithm || 'AES-256-GCM',
+        encryptionKeyId: encryptionResult ? `key_${encryptionResult.keyFingerprint}` : undefined,
+        encryptionHash: encryptionResult?.hash || undefined,
+        isPeerReviewed,
+        isSupabaseStored: Boolean(selectedVideoFile),
+        supabasePath: selectedVideoFile ? supabasePath : undefined,
+        supabaseBucket: selectedVideoFile ? 'videos' : undefined,
+        supabaseUrl: selectedVideoFile ? finalVideoUrl : undefined,
+        fileSize,
+        mimeType,
       });
 
-      // 2. Also register in Supabase database table if physical file uploaded
-      if (selectedVideoFile) {
-        await insertVideoToSupabase({
-          title: title.trim(),
-          description: description.trim(),
-          video_url: finalVideoUrl,
-          thumbnail_url: finalThumbnailUrl,
-          duration,
-          duration_sec: durationSec,
-          category,
-          educator_id: user?.uid || 'creator-default',
-          educator_name: user?.displayName || 'Verified Creator',
-          is_supabase_stored: true,
-          supabase_path: supabasePath,
-          supabase_bucket: 'videos',
-        });
-      }
-
-      if (res.ok) {
+      if (result.success) {
         triggerRealtimeNotification(
           'Video Published',
           `"${title}" has been successfully published to the catalog.`,
@@ -221,9 +199,6 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
         );
         onSuccess();
         onClose();
-      } else {
-        const data = await res.json();
-        setError(data.error || 'Failed to publish video');
       }
     } catch (err: any) {
       setError(err.message || 'Network error while publishing');

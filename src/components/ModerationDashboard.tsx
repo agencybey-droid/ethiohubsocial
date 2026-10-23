@@ -24,6 +24,7 @@ import {
   Check,
   Sparkles,
 } from 'lucide-react';
+import { publishVideo, getAdminVideosCatalog, removeVideoItem } from '../services/videoService.ts';
 
 interface ReportItem {
   id: number;
@@ -214,11 +215,8 @@ export const ModerationDashboard: React.FC<ModerationDashboardProps> = ({
   const fetchAdminVideos = async () => {
     setLoadingVideos(true);
     try {
-      const res = await fetch('/api/admin/videos');
-      if (res.ok) {
-        const data = await res.json();
-        setAdminVideos(data);
-      }
+      const data = await getAdminVideosCatalog();
+      setAdminVideos(data as any);
     } catch (e) {
       console.warn('Failed to fetch admin catalog:', e);
     } finally {
@@ -273,18 +271,14 @@ export const ModerationDashboard: React.FC<ModerationDashboardProps> = ({
       return;
     }
     try {
-      const res = await fetch(`/api/videos/${videoId}`, {
-        method: 'DELETE',
-      });
-      if (res.ok) {
-        triggerRealtimeNotification(
-          'Video Removed',
-          `"${videoTitle}" has been removed from the platform by Admin.`,
-          'moderation'
-        );
-        setAdminVideos((prev) => prev.filter((v) => v.id !== videoId));
-        onVideoUploaded?.();
-      }
+      await removeVideoItem(videoId);
+      triggerRealtimeNotification(
+        'Video Removed',
+        `"${videoTitle}" has been removed from the platform by Admin.`,
+        'moderation'
+      );
+      setAdminVideos((prev) => prev.filter((v) => v.id !== videoId));
+      onVideoUploaded?.();
     } catch (e) {
       console.warn('Failed to delete video:', e);
     }
@@ -316,7 +310,6 @@ export const ModerationDashboard: React.FC<ModerationDashboardProps> = ({
       if (videoSourceType === 'url' && customVideoUrl.trim()) {
         finalVideoUrl = customVideoUrl.trim();
       } else if (videoSourceType === 'file' && selectedFile) {
-        // Direct local file conversion/URL simulation
         setUploadProgress(45);
         finalVideoUrl = URL.createObjectURL(selectedFile);
       }
@@ -332,33 +325,28 @@ export const ModerationDashboard: React.FC<ModerationDashboardProps> = ({
         .map((t) => t.trim())
         .filter(Boolean);
 
-      const res = await fetch('/api/videos/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: title.trim(),
-          description: description.trim() || `Uploaded via Admin Studio: ${title.trim()}`,
-          videoUrl: finalVideoUrl,
-          thumbnailUrl: finalThumbUrl,
-          previewUrl: finalThumbUrl,
-          duration: finalDuration,
-          durationSec: finalDurationSec,
-          category,
-          tags: JSON.stringify(parsedTags),
-          educatorId: user?.uid || 'admin-portal',
-          educatorName: educatorName.trim() || 'Admin Team',
-          educatorAvatar: user?.avatarUrl,
-          accessLevel,
-          isShort,
-          isApproved: autoApprove,
-          isPeerReviewed,
-        }),
+      const result = await publishVideo({
+        title: title.trim(),
+        description: description.trim() || `Uploaded via Admin Studio: ${title.trim()}`,
+        videoUrl: finalVideoUrl,
+        thumbnailUrl: finalThumbUrl,
+        previewUrl: finalThumbUrl,
+        duration: finalDuration,
+        durationSec: finalDurationSec,
+        category,
+        tags: parsedTags,
+        educatorId: user?.uid || 'admin-portal',
+        educatorName: educatorName.trim() || 'Admin Team',
+        educatorAvatar: user?.avatarUrl,
+        accessLevel,
+        isShort,
+        isApproved: autoApprove,
+        isPeerReviewed,
       });
 
       setUploadProgress(100);
 
-      if (res.ok) {
-        const created = await res.json();
+      if (result.success) {
         setUploadSuccessMessage(
           isAmharic
             ? `"${title}" በቪዲዮ ካታሎግ ውስጥ በተሳካ ሁኔታ ተለጥፏል!`
@@ -382,9 +370,6 @@ export const ModerationDashboard: React.FC<ModerationDashboardProps> = ({
         if (activeTab === 'manage') {
           fetchAdminVideos();
         }
-      } else {
-        const data = await res.json();
-        setUploadErrorMessage(data.error || 'Failed to upload video');
       }
     } catch (err: any) {
       setUploadErrorMessage(err.message || 'An error occurred during video upload');

@@ -1,18 +1,17 @@
 import React, { useState } from 'react';
 import { VideoItem } from './VideoCard.tsx';
 import { useLanguage } from '../context/LanguageContext.tsx';
-import { Play, Plus, Flame, Sparkles } from 'lucide-react';
+import { Play, Flame, Sparkles } from 'lucide-react';
 
 interface ShortsSectionProps {
   shorts: VideoItem[];
   onSelectShort: (short: VideoItem, index: number) => void;
-  onOpenPostShort: () => void;
+  onOpenPostShort?: () => void;
 }
 
 export const ShortsSection: React.FC<ShortsSectionProps> = ({
   shorts,
   onSelectShort,
-  onOpenPostShort,
 }) => {
   const { language } = useLanguage();
   const isAmharic = language === 'am';
@@ -36,15 +35,6 @@ export const ShortsSection: React.FC<ShortsSectionProps> = ({
             </h2>
           </div>
         </div>
-
-        {/* Post Short Reel Button */}
-        <button
-          onClick={onOpenPostShort}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#ff9000] hover:bg-[#ffa31a] active:bg-[#e68200] active:scale-[0.98] text-black text-xs font-bold transition-all duration-150 cursor-pointer shadow-sm"
-        >
-          <Plus className="w-3.5 h-3.5 stroke-[3]" />
-          <span>{isAmharic ? 'አጭር ቪዲዮ ለጥፍ' : 'Post Short Reel'}</span>
-        </button>
       </div>
 
       {/* Horizontal Carousel of Vertical Shorts */}
