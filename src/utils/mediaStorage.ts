@@ -100,12 +100,17 @@ export async function getVideoBlob(id: number | string): Promise<Blob | null> {
  * If not, it returns the provided fallback URL.
  */
 export async function resolvePlayableVideoUrl(id: number | string, fallbackUrl: string): Promise<string> {
+  // If the video URL is a valid server streaming route or public URL (not an ephemeral local blob: URL), use it directly!
+  if (fallbackUrl && !fallbackUrl.startsWith('blob:')) {
+    return fallbackUrl;
+  }
+
   // If we already have an active live object URL in memory, use it
   if (activeObjectUrls.has(id)) {
     return activeObjectUrls.get(id)!;
   }
 
-  // Try fetching blob from IndexedDB
+  // Try fetching blob from IndexedDB for local offline fallback
   const blob = await getVideoBlob(id);
   if (blob) {
     const newUrl = URL.createObjectURL(blob);

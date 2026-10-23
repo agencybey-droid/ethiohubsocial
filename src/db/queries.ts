@@ -1,6 +1,6 @@
 import { db } from './index.ts';
 import { users, videos, comments, reports, notifications, userVotes } from './schema.ts';
-import { desc, eq, and, sql, or, ilike } from 'drizzle-orm';
+import { desc, eq, and, sql, or, ilike, inArray } from 'drizzle-orm';
 
 // --- Users ---
 export async function getOrCreateUser(
@@ -214,6 +214,45 @@ export async function deleteVideo(id: number) {
   } catch (error) {
     console.error('Database query failed in deleteVideo:', error);
     throw new Error('Failed to delete video record.', { cause: error });
+  }
+}
+
+export async function updateVideo(id: number, data: Partial<typeof videos.$inferInsert>) {
+  try {
+    const [updated] = await db.update(videos)
+      .set(data)
+      .where(eq(videos.id, id))
+      .returning();
+    return updated;
+  } catch (error) {
+    console.error('Database query failed in updateVideo:', error);
+    throw new Error('Failed to update video record.', { cause: error });
+  }
+}
+
+export async function clearDemoPlaceholdersInDB() {
+  try {
+    const demoIds = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+    await db.update(videos)
+      .set({ isRemoved: true })
+      .where(inArray(videos.id, demoIds));
+    return true;
+  } catch (error) {
+    console.error('Database query failed in clearDemoPlaceholdersInDB:', error);
+    return false;
+  }
+}
+
+export async function restoreDemoPlaceholdersInDB() {
+  try {
+    const demoIds = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+    await db.update(videos)
+      .set({ isRemoved: false })
+      .where(inArray(videos.id, demoIds));
+    return true;
+  } catch (error) {
+    console.error('Database query failed in restoreDemoPlaceholdersInDB:', error);
+    return false;
   }
 }
 

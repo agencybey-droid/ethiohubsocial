@@ -1,4 +1,7 @@
 import express from 'express';
+import multer from 'multer';
+import fs from 'fs';
+import path from 'path';
 import { requireAuth, optionalAuth, AuthRequest } from './src/middleware/auth.ts';
 import {
   getOrCreateUser,
@@ -9,6 +12,9 @@ import {
   getVideoById,
   incrementVideoViews,
   createVideo,
+  updateVideo,
+  clearDemoPlaceholdersInDB,
+  restoreDemoPlaceholdersInDB,
   voteVideo,
   getUserVote,
   getVideoComments,
@@ -26,6 +32,41 @@ import {
 const app = express();
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ extended: true, limit: '100mb' }));
+
+// Setup uploads directories for universal server-side video & thumbnail storage
+const uploadsBaseDir = path.join(process.cwd(), 'uploads');
+const uploadsVideosDir = path.join(uploadsBaseDir, 'videos');
+const uploadsThumbnailsDir = path.join(uploadsBaseDir, 'thumbnails');
+
+if (!fs.existsSync(uploadsVideosDir)) {
+  fs.mkdirSync(uploadsVideosDir, { recursive: true });
+}
+if (!fs.existsSync(uploadsThumbnailsDir)) {
+  fs.mkdirSync(uploadsThumbnailsDir, { recursive: true });
+}
+
+// Serve static uploads
+app.use('/uploads', express.static(uploadsBaseDir));
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    if (file.fieldname === 'thumbnail') {
+      cb(null, uploadsThumbnailsDir);
+    } else {
+      cb(null, uploadsVideosDir);
+    }
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname) || (file.fieldname === 'thumbnail' ? '.jpg' : '.mp4');
+    const cleanName = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 30);
+    cb(null, `${file.fieldname}-${Date.now()}-${cleanName}${ext}`);
+  },
+});
+
+const uploadMiddleware = multer({
+  storage,
+  limits: { fileSize: 250 * 1024 * 1024 }, // 250MB
+});
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -232,6 +273,20 @@ app.post('/api/videos/upload', async (req, res) => {
       fileSize: fileSize || 0,
     });
 
+    // If videoData base64 is provided in JSON payload, save to disk and configure streaming URL
+    if (videoData) {
+      try {
+        const base64Data = videoData.replace(/^data:video\/[^;]+;base64,/, '');
+        const targetPath = path.join(uploadsVideosDir, `video-${video.id}.mp4`);
+        fs.writeFileSync(targetPath, Buffer.from(base64Data, 'base64'));
+        const streamUrl = `/api/media/stream/${video.id}`;
+        await updateVideo(video.id, { videoUrl: streamUrl });
+        video.videoUrl = streamUrl;
+      } catch (err) {
+        console.warn('Could not write videoData to disk cache:', err);
+      }
+    }
+
     // Create system notification for subscribers
     await createNotification({
       userId: educatorId,
@@ -245,6 +300,208 @@ app.post('/api/videos/upload', async (req, res) => {
   } catch (error: any) {
     console.error('Failed to upload video:', error);
     res.status(500).json({ error: error.message || 'Failed to publish video' });
+  }
+});
+
+// Multipart file upload endpoint (universal storage across all browsers and phones)
+app.post('/api/videos/upload-file', uploadMiddleware.fields([
+  { name: 'video', maxCount: 1 },
+  { name: 'thumbnail', maxCount: 1 },
+]), async (req, res) => {
+  try {
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+    const videoFile = files?.video?.[0];
+    const thumbFile = files?.thumbnail?.[0];
+
+    const {
+      title,
+      description,
+      duration,
+      durationSec,
+      category,
+      tags,
+      educatorId,
+      educatorName,
+      educatorAvatar,
+      accessLevel,
+      isShort,
+      isPeerReviewed,
+      autoApprove,
+    } = req.body;
+
+    const cleanTitle = (title || (videoFile ? videoFile.originalname.replace(/\.[^/.]+$/, '') : '')).trim();
+    if (!cleanTitle) {
+      return res.status(400).json({ error: 'Video title is required' });
+    }
+
+    let mimeType = videoFile ? (videoFile.mimetype || 'video/mp4') : 'video/mp4';
+    let fileSize = videoFile ? videoFile.size : 0;
+    let videoData: string | null = null;
+
+    if (videoFile && fileSize <= 50 * 1024 * 1024) {
+      try {
+        const fileBuf = fs.readFileSync(videoFile.path);
+        videoData = fileBuf.toString('base64');
+      } catch (e) {
+        console.warn('Failed to read video buffer into base64:', e);
+      }
+    }
+
+    let thumbnailUrl = req.body.thumbnailUrl || '';
+    if (thumbFile) {
+      thumbnailUrl = `/uploads/thumbnails/${thumbFile.filename}`;
+    } else if (req.body.thumbnailData && req.body.thumbnailData.startsWith('data:image/')) {
+      try {
+        const thumbFilename = `thumb-${Date.now()}-${Math.random().toString(36).substring(2, 8)}.jpg`;
+        const thumbPath = path.join(uploadsThumbnailsDir, thumbFilename);
+        const thumbBase64 = req.body.thumbnailData.replace(/^data:image\/[^;]+;base64,/, '');
+        fs.writeFileSync(thumbPath, Buffer.from(thumbBase64, 'base64'));
+        thumbnailUrl = `/uploads/thumbnails/${thumbFilename}`;
+      } catch (e) {
+        console.warn('Failed to write thumbnail frame:', e);
+      }
+    }
+
+    if (!thumbnailUrl) {
+      thumbnailUrl = 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&auto=format&fit=crop&q=80';
+    }
+
+    const cleanDesc = (description || `Educational video lecture: ${cleanTitle}`).trim();
+    const cleanDurationSec = durationSec ? parseInt(durationSec, 10) : 600;
+    const isShortBool = isShort === 'true' || isShort === true || (cleanDurationSec <= 60);
+
+    const video = await createVideo({
+      title: cleanTitle,
+      description: cleanDesc,
+      videoUrl: videoFile ? `/uploads/videos/${videoFile.filename}` : (req.body.videoUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'),
+      thumbnailUrl,
+      previewUrl: thumbnailUrl,
+      duration: duration || '10:00',
+      durationSec: cleanDurationSec,
+      category: category || 'Science & Technology',
+      tags: typeof tags === 'string' ? tags : JSON.stringify(tags || []),
+      educatorId: educatorId || 'admin-portal',
+      educatorName: educatorName || 'Admin Team',
+      educatorAvatar: educatorAvatar || null,
+      accessLevel: accessLevel || 'public',
+      isEncrypted: false,
+      isPeerReviewed: isPeerReviewed === 'true' || isPeerReviewed === true,
+      isShort: isShortBool,
+      isApproved: autoApprove !== 'false' && autoApprove !== false,
+      videoData,
+      mimeType,
+      fileSize,
+    });
+
+    if (videoFile) {
+      const universalStreamUrl = `/api/media/stream/${video.id}`;
+      const standardPath = path.join(uploadsVideosDir, `video-${video.id}.mp4`);
+      try {
+        fs.copyFileSync(videoFile.path, standardPath);
+      } catch {}
+
+      await updateVideo(video.id, {
+        videoUrl: universalStreamUrl,
+      });
+      video.videoUrl = universalStreamUrl;
+    }
+
+    res.status(201).json(video);
+  } catch (error: any) {
+    console.error('Failed to upload video file via multipart:', error);
+    res.status(500).json({ error: error.message || 'Failed to upload video file' });
+  }
+});
+
+// Universal Video Streaming Endpoint with HTTP Range (206) support for all mobile and desktop browsers
+app.get('/api/media/stream/:id', async (req, res) => {
+  try {
+    const videoId = parseInt(req.params.id, 10);
+    if (isNaN(videoId)) return res.status(400).send('Invalid video ID');
+
+    const standardPath = path.join(uploadsVideosDir, `video-${videoId}.mp4`);
+
+    if (!fs.existsSync(standardPath)) {
+      const video = await getVideoById(videoId);
+      if (!video) {
+        return res.status(404).send('Video not found');
+      }
+
+      if (video.videoData) {
+        try {
+          const base64Data = video.videoData.replace(/^data:video\/[^;]+;base64,/, '');
+          fs.writeFileSync(standardPath, Buffer.from(base64Data, 'base64'));
+        } catch (e) {
+          console.error('Failed to write reconstructed video to disk:', e);
+          return res.status(500).send('Failed to reconstruct video on server');
+        }
+      } else if (video.videoUrl && !video.videoUrl.startsWith('blob:') && !video.videoUrl.includes('/api/media/stream/')) {
+        return res.redirect(video.videoUrl);
+      } else {
+        return res.status(404).send('Video data not found on server');
+      }
+    }
+
+    const stat = fs.statSync(standardPath);
+    const fileSize = stat.size;
+    const range = req.headers.range;
+    const mimeType = 'video/mp4';
+
+    if (range) {
+      const parts = range.replace(/bytes=/, '').split('-');
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+
+      if (start >= fileSize) {
+        res.status(416).send(`Requested range not satisfiable\n${start} >= ${fileSize}`);
+        return;
+      }
+
+      const chunksize = end - start + 1;
+      const file = fs.createReadStream(standardPath, { start, end });
+      const head = {
+        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': chunksize,
+        'Content-Type': mimeType,
+      };
+
+      res.writeHead(206, head);
+      file.pipe(res);
+    } else {
+      const head = {
+        'Content-Length': fileSize,
+        'Content-Type': mimeType,
+        'Accept-Ranges': 'bytes',
+      };
+      res.writeHead(200, head);
+      fs.createReadStream(standardPath).pipe(res);
+    }
+  } catch (err: any) {
+    console.error('Error streaming video:', err);
+    res.status(500).send('Error streaming video');
+  }
+});
+
+// Admin: Mark demo placeholders as removed in database for all visitors
+app.post('/api/admin/clear-demo-placeholders', async (req, res) => {
+  try {
+    const success = await clearDemoPlaceholdersInDB();
+    res.json({ success, message: 'Demo placeholders cleared for all visitors.' });
+  } catch (error: any) {
+    console.error('Failed to clear demo placeholders:', error);
+    res.status(500).json({ error: error.message || 'Failed to clear demo placeholders' });
+  }
+});
+
+// Admin: Restore demo placeholders in database for all visitors
+app.post('/api/admin/restore-demo-placeholders', async (req, res) => {
+  try {
+    const success = await restoreDemoPlaceholdersInDB();
+    res.json({ success, message: 'Demo placeholders restored for all visitors.' });
+  } catch (error: any) {
+    console.error('Failed to restore demo placeholders:', error);
+    res.status(500).json({ error: error.message || 'Failed to restore demo placeholders' });
   }
 });
 

@@ -351,22 +351,30 @@ export function markVideoRemoved(id: number): void {
 }
 
 // Clear all demo/placeholder videos so the user has a 100% clean custom catalog
-export function clearAllPlaceholders(): void {
-  if (typeof window === 'undefined') return;
+export async function clearAllPlaceholders(): Promise<void> {
+  if (typeof window !== 'undefined') {
+    try {
+      const ids = getRemovedVideoIds();
+      DEMO_PLACEHOLDER_IDS.forEach((id) => ids.add(id));
+      localStorage.setItem(REMOVED_IDS_KEY, JSON.stringify(Array.from(ids)));
+    } catch {}
+  }
   try {
-    const ids = getRemovedVideoIds();
-    DEMO_PLACEHOLDER_IDS.forEach((id) => ids.add(id));
-    localStorage.setItem(REMOVED_IDS_KEY, JSON.stringify(Array.from(ids)));
+    await safeFetchJson('/api/admin/clear-demo-placeholders', { method: 'POST' });
   } catch {}
 }
 
 // Restore default demo videos if user wants them back
-export function restorePlaceholders(): void {
-  if (typeof window === 'undefined') return;
+export async function restorePlaceholders(): Promise<void> {
+  if (typeof window !== 'undefined') {
+    try {
+      const ids = getRemovedVideoIds();
+      DEMO_PLACEHOLDER_IDS.forEach((id) => ids.delete(id));
+      localStorage.setItem(REMOVED_IDS_KEY, JSON.stringify(Array.from(ids)));
+    } catch {}
+  }
   try {
-    const ids = getRemovedVideoIds();
-    DEMO_PLACEHOLDER_IDS.forEach((id) => ids.delete(id));
-    localStorage.setItem(REMOVED_IDS_KEY, JSON.stringify(Array.from(ids)));
+    await safeFetchJson('/api/admin/restore-demo-placeholders', { method: 'POST' });
   } catch {}
 }
 
