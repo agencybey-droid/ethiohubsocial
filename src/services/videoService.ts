@@ -2,7 +2,12 @@
 // 1. Direct Cloud SQL & Express backend API (when running with full backend)
 // 2. LocalStorage & Supabase fallback (when hosted statically e.g. Vercel without backend env vars)
 
-import { uploadVideoFileToSupabase, insertVideoToSupabase } from '../lib/supabase.ts';
+import {
+  uploadVideoFileToSupabase,
+  insertVideoToSupabase,
+  fetchAllVideosFromSupabase,
+  UNIVERSAL_VIDEO_BUCKET,
+} from '../lib/supabase.ts';
 import {
   saveVideoBlob,
   getVideoBlob,
@@ -572,12 +577,19 @@ function shouldKeepVideo(v: VideoRecord, removedIds: Set<number>): boolean {
  * Fetch all catalog videos with category & search filtering, seamlessly
  * merging server data and local storage uploads with fallback support.
  */
+/**
+ * Fetch all catalog videos with category & search filtering, seamlessly
+ * merging server data, Supabase bucket uploads, and local storage uploads with fallback support.
+ */
 export async function getCatalogVideos(params: {
   category?: string;
   search?: string;
   sort?: string;
 }): Promise<VideoRecord[]> {
   syncLocalVideosToServer().catch(() => {});
+  // Trigger server-side Supabase sync in the background
+  fetch('/api/supabase/sync', { method: 'POST' }).catch(() => {});
+
   const removedIds = getRemovedVideoIds();
   const query = new URLSearchParams();
   if (params.sort) query.set('sort', params.sort);
@@ -607,6 +619,46 @@ export async function getCatalogVideos(params: {
     }
   }
 
+  // Also query Supabase directly to guarantee any video uploaded by any account
+  // into the single universal 'videos' bucket is instantly displayed on the site
+  try {
+    const supabaseVideos = await fetchAllVideosFromSupabase();
+    for (const sv of supabaseVideos) {
+      if (sv.isShort) continue;
+      if (!shouldKeepVideo(sv as any, removedIds)) continue;
+
+      // Filter by category if specified
+      if (params.category && params.category !== 'All' && sv.category !== params.category) {
+        continue;
+      }
+      // Filter by search query if specified
+      if (params.search && params.search.trim()) {
+        const q = params.search.toLowerCase();
+        if (
+          !sv.title.toLowerCase().includes(q) &&
+          !sv.description.toLowerCase().includes(q) &&
+          !sv.educatorName.toLowerCase().includes(q)
+        ) {
+          continue;
+        }
+      }
+
+      const duplicate = baseList.some(
+        (b) =>
+          b.id === sv.id ||
+          b.title.toLowerCase() === sv.title.toLowerCase() ||
+          (b.videoUrl && sv.videoUrl && b.videoUrl === sv.videoUrl) ||
+          (b.supabasePath && sv.supabasePath && b.supabasePath === sv.supabasePath)
+      );
+
+      if (!duplicate) {
+        baseList.push(sv as any);
+      }
+    }
+  } catch (err) {
+    console.warn('Direct client Supabase fetch note:', err);
+  }
+
   // Merge local uploads on top (avoiding duplicate IDs)
   const existingIds = new Set(baseList.map((v) => v.id));
   const filteredLocal = localUploads.filter((v) => {
@@ -627,10 +679,12 @@ export async function getCatalogVideos(params: {
 }
 
 /**
- * Fetch shorts reels catalog with local storage merge and fallback
+ * Fetch shorts reels catalog with local storage merge, Supabase bucket scan, and fallback
  */
 export async function getShortsCatalog(): Promise<VideoRecord[]> {
   syncLocalVideosToServer().catch(() => {});
+  fetch('/api/supabase/sync', { method: 'POST' }).catch(() => {});
+
   const removedIds = getRemovedVideoIds();
   const localShorts = getLocalVideos().filter((v) => v.isShort && shouldKeepVideo(v, removedIds));
   const result = await safeFetchJson<VideoRecord[]>('/api/shorts');
@@ -642,6 +696,29 @@ export async function getShortsCatalog(): Promise<VideoRecord[]> {
     baseList = SEED_SHORTS.filter((v) => shouldKeepVideo(v, removedIds));
   }
 
+  // Also query Supabase for short reels uploaded to the single 'videos' bucket
+  try {
+    const supabaseVideos = await fetchAllVideosFromSupabase();
+    for (const sv of supabaseVideos) {
+      if (!sv.isShort) continue;
+      if (!shouldKeepVideo(sv as any, removedIds)) continue;
+
+      const duplicate = baseList.some(
+        (b) =>
+          b.id === sv.id ||
+          b.title.toLowerCase() === sv.title.toLowerCase() ||
+          (b.videoUrl && sv.videoUrl && b.videoUrl === sv.videoUrl) ||
+          (b.supabasePath && sv.supabasePath && b.supabasePath === sv.supabasePath)
+      );
+
+      if (!duplicate) {
+        baseList.push(sv as any);
+      }
+    }
+  } catch (err) {
+    console.warn('Direct client Supabase shorts fetch note:', err);
+  }
+
   const existingIds = new Set(baseList.map((v) => v.id));
   const filteredLocal = localShorts.filter((v) => !existingIds.has(v.id));
 
@@ -649,10 +726,12 @@ export async function getShortsCatalog(): Promise<VideoRecord[]> {
 }
 
 /**
- * Fetch all videos for Admin Management (including shorts and all categories)
+ * Fetch all videos for Admin Management (including Supabase bucket videos, shorts, and all categories)
  */
 export async function getAdminVideosCatalog(): Promise<VideoRecord[]> {
   syncLocalVideosToServer().catch(() => {});
+  fetch('/api/supabase/sync', { method: 'POST' }).catch(() => {});
+
   const removedIds = getRemovedVideoIds();
   const localVideos = getLocalVideos().filter((v) => shouldKeepVideo(v, removedIds));
   const result = await safeFetchJson<VideoRecord[]>('/api/admin/videos');
@@ -662,6 +741,28 @@ export async function getAdminVideosCatalog(): Promise<VideoRecord[]> {
     baseList = result.data.filter((v) => shouldKeepVideo(v, removedIds));
   } else {
     baseList = [...SEED_VIDEOS, ...SEED_SHORTS].filter((v) => shouldKeepVideo(v, removedIds));
+  }
+
+  // Include all Supabase videos in Admin Management
+  try {
+    const supabaseVideos = await fetchAllVideosFromSupabase();
+    for (const sv of supabaseVideos) {
+      if (!shouldKeepVideo(sv as any, removedIds)) continue;
+
+      const duplicate = baseList.some(
+        (b) =>
+          b.id === sv.id ||
+          b.title.toLowerCase() === sv.title.toLowerCase() ||
+          (b.videoUrl && sv.videoUrl && b.videoUrl === sv.videoUrl) ||
+          (b.supabasePath && sv.supabasePath && b.supabasePath === sv.supabasePath)
+      );
+
+      if (!duplicate) {
+        baseList.push(sv as any);
+      }
+    }
+  } catch (err) {
+    console.warn('Direct client Supabase admin fetch note:', err);
   }
 
   const existingIds = new Set(baseList.map((v) => v.id));

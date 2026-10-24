@@ -2,6 +2,7 @@ import express from 'express';
 import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
+import { createClient } from '@supabase/supabase-js';
 import { requireAuth, optionalAuth, AuthRequest } from './src/middleware/auth.ts';
 import {
   getOrCreateUser,
@@ -131,6 +132,7 @@ app.patch('/api/auth/role', async (req, res) => {
 // List regular videos with filters
 app.get('/api/videos', async (req, res) => {
   try {
+    syncSupabaseVideosToCloudSQL().catch(() => {});
     const { category, search, sort, accessLevel, isShort, isSupabaseStored } = req.query;
     const videosList = await getVideos({
       category: category as string,
@@ -150,6 +152,7 @@ app.get('/api/videos', async (req, res) => {
 // Dedicated Shorts / Reels endpoint
 app.get('/api/shorts', async (req, res) => {
   try {
+    syncSupabaseVideosToCloudSQL().catch(() => {});
     const list = await getShorts();
     res.json(list);
   } catch (error: any) {
@@ -551,6 +554,203 @@ app.post('/api/videos/sync-local', async (req, res) => {
   } catch (error: any) {
     console.error('Failed to sync local videos:', error);
     res.status(500).json({ error: error.message || 'Failed to sync local videos' });
+  }
+});
+
+function resolveValidSupabaseUrl(rawUrl?: string, rawKey?: string): string {
+  if (rawUrl && (rawUrl.startsWith('http://') || rawUrl.startsWith('https://'))) {
+    return rawUrl.trim().replace(/\/+$/, '');
+  }
+  if (rawKey && rawKey.includes('.')) {
+    try {
+      const parts = rawKey.split('.');
+      if (parts.length >= 2) {
+        let base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+        while (base64.length % 4) base64 += '=';
+        const decoded = Buffer.from(base64, 'base64').toString('utf8');
+        const payload = JSON.parse(decoded);
+        if (payload?.ref) return `https://${payload.ref}.supabase.co`;
+      }
+    } catch {}
+  }
+  return 'https://hyuutvivdhadmwzdhwwp.supabase.co';
+}
+
+// Configure Supabase server client for single shared 'videos' bucket library
+const SUPABASE_RAW_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh5dXV0dml2ZGhhZG13emRod3dwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1Nzc2MDEsImV4cCI6MjEwODE1MzYwMX0.iqzz3f0wNRJyYQBDdagqyMLagq5TzlXjyECdaWu1Bj0';
+const SUPABASE_URL = resolveValidSupabaseUrl(process.env.VITE_SUPABASE_URL, SUPABASE_RAW_KEY);
+const SUPABASE_ANON_KEY = SUPABASE_RAW_KEY;
+const supabaseServerClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { persistSession: false },
+});
+
+// Sync all videos uploaded to Supabase (from the single shared 'videos' storage bucket & database) into Cloud SQL
+async function syncSupabaseVideosToCloudSQL(): Promise<{ syncedCount: number; synced: any[] }> {
+  const syncedVideos: any[] = [];
+  try {
+    // 1. Fetch videos from Supabase 'videos' database table
+    try {
+      const { data: dbRows, error: dbErr } = await supabaseServerClient
+        .from('videos')
+        .select('*');
+
+      if (!dbErr && Array.isArray(dbRows)) {
+        for (const row of dbRows) {
+          const title = (row.title || 'Supabase Lecture').trim();
+          const existing = await getVideos({ search: title });
+          const match = existing.find(
+            (v) =>
+              v.title.toLowerCase() === title.toLowerCase() ||
+              (v.supabasePath && v.supabasePath === row.supabase_path) ||
+              (row.video_url && v.videoUrl === row.video_url)
+          );
+
+          if (!match) {
+            let videoUrl = row.video_url;
+            if (!videoUrl && row.supabase_path) {
+              videoUrl = supabaseServerClient.storage
+                .from('videos')
+                .getPublicUrl(row.supabase_path).data.publicUrl;
+            }
+            if (!videoUrl) continue;
+
+            const isShort = !!row.is_short || (row.duration_sec && row.duration_sec <= 60);
+            const created = await createVideo({
+              title,
+              description: row.description || `Educational video lecture: ${title}`,
+              videoUrl,
+              thumbnailUrl: row.thumbnail_url || 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&auto=format&fit=crop&q=80',
+              previewUrl: row.preview_url || row.thumbnail_url,
+              duration: row.duration || '10:00',
+              durationSec: row.duration_sec || 600,
+              category: row.category || 'Technology',
+              tags: typeof row.tags === 'string' ? row.tags : JSON.stringify(row.tags || ['supabase']),
+              educatorId: 'student-demo-uid',
+              educatorName: 'Alex Rivers (Student)',
+              educatorAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+              accessLevel: row.access_level || 'public',
+              isEncrypted: false,
+              isShort,
+              isApproved: true,
+              isRemoved: false,
+              isSupabaseStored: true,
+              supabasePath: row.supabase_path || null,
+              supabaseBucket: 'videos',
+              supabaseUrl: videoUrl,
+            });
+            syncedVideos.push(created);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Supabase DB table sync note:', e);
+    }
+
+    // 2. Fetch directly from the single universal Supabase storage bucket 'videos'
+    const folders = ['', 'uploads'];
+    for (const folder of folders) {
+      try {
+        const { data: files, error: listErr } = await supabaseServerClient.storage
+          .from('videos')
+          .list(folder, { limit: 100, sortBy: { column: 'created_at', order: 'desc' } });
+
+        if (!listErr && Array.isArray(files)) {
+          for (const file of files) {
+            if (!file.name || file.name.startsWith('.') || file.id === null) continue;
+            const isVideo = /\.(mp4|webm|mov|m4v|mkv)$/i.test(file.name);
+            if (!isVideo && !file.metadata?.mimetype?.includes('video')) continue;
+
+            const fullPath = folder ? `${folder}/${file.name}` : file.name;
+            const { data: urlData } = supabaseServerClient.storage
+              .from('videos')
+              .getPublicUrl(fullPath);
+
+            const cleanName = file.name
+              .replace(/\.[^/.]+$/, '')
+              .replace(/^\d+[_-]/, '')
+              .replace(/[_-]/g, ' ')
+              .trim();
+            const displayTitle = cleanName ? (cleanName.charAt(0).toUpperCase() + cleanName.slice(1)) : 'Supabase Video';
+
+            const existing = await getVideos({ search: displayTitle });
+            const match = existing.find(
+              (v) =>
+                v.title.toLowerCase() === displayTitle.toLowerCase() ||
+                (v.supabasePath && v.supabasePath === fullPath) ||
+                v.videoUrl === urlData.publicUrl
+            );
+
+            if (!match) {
+              const isShort = /short|reel|vertical/i.test(file.name);
+              const created = await createVideo({
+                title: displayTitle,
+                description: `Universal educational video: ${displayTitle}. Streamed directly from shared Supabase bucket 'videos'.`,
+                videoUrl: urlData.publicUrl,
+                thumbnailUrl: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&auto=format&fit=crop&q=80',
+                previewUrl: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&auto=format&fit=crop&q=80',
+                duration: isShort ? '0:45' : '10:00',
+                durationSec: isShort ? 45 : 600,
+                category: 'Technology',
+                tags: '["supabase", "video-bucket"]',
+                educatorId: 'student-demo-uid',
+                educatorName: 'Alex Rivers (Student)',
+                educatorAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+                accessLevel: 'public',
+                isEncrypted: false,
+                isShort,
+                isApproved: true,
+                isRemoved: false,
+                isSupabaseStored: true,
+                supabasePath: fullPath,
+                supabaseBucket: 'videos',
+                supabaseUrl: urlData.publicUrl,
+              });
+              syncedVideos.push(created);
+            }
+          }
+        }
+      } catch (fErr) {
+        console.warn(`Supabase folder scan warning (${folder}):`, fErr);
+      }
+    }
+  } catch (err: any) {
+    console.warn('Supabase sync overall warning:', err.message);
+  }
+  return { syncedCount: syncedVideos.length, synced: syncedVideos };
+}
+
+// Trigger Supabase sync endpoint
+app.post('/api/supabase/sync', async (req, res) => {
+  try {
+    const result = await syncSupabaseVideosToCloudSQL();
+    res.json({ success: true, ...result });
+  } catch (error: any) {
+    console.error('Failed to sync from Supabase:', error);
+    res.status(500).json({ error: error.message || 'Failed to sync from Supabase' });
+  }
+});
+
+// Supabase Connection & Bucket status endpoint
+app.get('/api/supabase/status', async (req, res) => {
+  try {
+    const { data: buckets, error: bErr } = await supabaseServerClient.storage.listBuckets();
+    const { data: files } = await supabaseServerClient.storage.from('videos').list('', { limit: 100 });
+    res.json({
+      connected: !bErr,
+      bucket: 'videos',
+      url: SUPABASE_URL,
+      bucketsFound: buckets ? buckets.map(b => b.name) : [],
+      filesInVideosBucket: files ? files.length : 0,
+      singleLibraryMode: true,
+    });
+  } catch (e: any) {
+    res.json({
+      connected: false,
+      bucket: 'videos',
+      url: SUPABASE_URL,
+      error: e.message,
+      singleLibraryMode: true,
+    });
   }
 });
 

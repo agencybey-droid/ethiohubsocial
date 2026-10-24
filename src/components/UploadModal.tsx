@@ -189,7 +189,27 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
         supabaseUrl: selectedVideoFile ? finalVideoUrl : undefined,
         fileSize,
         mimeType,
+        videoFile: selectedVideoFile || undefined,
       });
+
+      if (selectedVideoFile) {
+        try {
+          await insertVideoToSupabase({
+            title: title.trim(),
+            description: description.trim(),
+            video_url: finalVideoUrl,
+            thumbnail_url: finalThumbnailUrl,
+            duration,
+            duration_sec: durationSec,
+            category,
+            educator_id: 'student-demo-uid',
+            educator_name: user?.displayName || 'Alex Rivers (Student)',
+            is_supabase_stored: true,
+            supabase_path: supabasePath,
+            supabase_bucket: 'videos',
+          });
+        } catch {}
+      }
 
       if (result.success) {
         triggerRealtimeNotification(

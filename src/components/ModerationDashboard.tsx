@@ -23,6 +23,7 @@ import {
   Search,
   Check,
   Sparkles,
+  Database,
 } from 'lucide-react';
 import {
   publishVideo,
@@ -31,6 +32,11 @@ import {
   clearAllPlaceholders,
   restorePlaceholders,
 } from '../services/videoService.ts';
+import {
+  uploadVideoFileToSupabase,
+  insertVideoToSupabase,
+  UNIVERSAL_VIDEO_BUCKET,
+} from '../lib/supabase.ts';
 
 interface ReportItem {
   id: number;
@@ -354,13 +360,53 @@ export const ModerationDashboard: React.FC<ModerationDashboardProps> = ({
       let finalDuration = isShort ? currentPreset.duration : duration || currentPreset.duration;
       let finalDurationSec = isShort ? currentPreset.durationSec : 600;
 
+      let supabasePath: string | undefined;
+      let supabaseBucket = UNIVERSAL_VIDEO_BUCKET;
+      let supabaseUrl: string | undefined;
+
       if (videoSourceType === 'file' && selectedFile) {
-        setUploadProgress(45);
-        finalVideoUrl = URL.createObjectURL(selectedFile);
+        setUploadProgress(25);
         if (generatedThumbnail) {
           finalThumbUrl = generatedThumbnail;
         } else if (!customThumbnailUrl.trim()) {
           finalThumbUrl = 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&auto=format&fit=crop&q=80';
+        }
+
+        // Upload directly to the single shared universal Supabase 'videos' bucket
+        try {
+          const supabaseResult = await uploadVideoFileToSupabase(
+            selectedFile,
+            UNIVERSAL_VIDEO_BUCKET,
+            (percent) => {
+              setUploadProgress(Math.round(25 + percent * 0.45));
+            }
+          );
+          finalVideoUrl = supabaseResult.publicUrl;
+          supabasePath = supabaseResult.path;
+          supabaseBucket = UNIVERSAL_VIDEO_BUCKET;
+          supabaseUrl = supabaseResult.publicUrl;
+
+          // Insert into Supabase 'videos' database table
+          try {
+            await insertVideoToSupabase({
+              title: title.trim(),
+              description: description.trim() || `Uploaded via Admin Studio: ${title.trim()}`,
+              video_url: finalVideoUrl,
+              thumbnail_url: finalThumbUrl,
+              duration: finalDuration,
+              duration_sec: finalDurationSec,
+              category,
+              educator_id: 'student-demo-uid',
+              educator_name: educatorName.trim() || 'Alex Rivers (Student)',
+              is_short: isShort,
+              is_supabase_stored: true,
+              supabase_path: supabasePath,
+              supabase_bucket: UNIVERSAL_VIDEO_BUCKET,
+            });
+          } catch {}
+        } catch (e) {
+          console.warn('Supabase upload exception:', e);
+          finalVideoUrl = URL.createObjectURL(selectedFile);
         }
       } else if (videoSourceType === 'url' && customVideoUrl.trim()) {
         finalVideoUrl = customVideoUrl.trim();
@@ -370,7 +416,7 @@ export const ModerationDashboard: React.FC<ModerationDashboardProps> = ({
         finalThumbUrl = customThumbnailUrl.trim();
       }
 
-      setUploadProgress(70);
+      setUploadProgress(75);
 
       const parsedTags = tags
         .split(',')
@@ -394,6 +440,10 @@ export const ModerationDashboard: React.FC<ModerationDashboardProps> = ({
         isShort,
         isApproved: autoApprove,
         isPeerReviewed,
+        isSupabaseStored: Boolean(supabasePath),
+        supabasePath,
+        supabaseBucket,
+        supabaseUrl,
         videoFile: selectedFile || undefined,
       });
 
@@ -580,6 +630,34 @@ export const ModerationDashboard: React.FC<ModerationDashboardProps> = ({
                 <span>{isAmharic ? 'አጭር ሪል (9:16)' : 'Short Reel (9:16)'}</span>
               </button>
             </div>
+          </div>
+
+          {/* Universal Video Bucket Banner */}
+          <div className="p-3 bg-neutral-950 rounded-xl border border-neutral-800/80 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2">
+              <Database className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span className="text-neutral-300 font-semibold">Universal Video Bucket:</span>
+              <span className="font-mono text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-800/80 text-[11px]">
+                videos
+              </span>
+              <span className="text-neutral-400 text-[11px] hidden sm:inline">
+                • Unified public bucket: all uploads from any account are stored in one single library and visible to every visitor.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  await fetch('/api/supabase/sync', { method: 'POST' });
+                  fetchAdminVideos();
+                  onVideoUploaded?.();
+                } catch {}
+              }}
+              className="px-2.5 py-1 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 hover:text-white rounded-lg border border-neutral-700 cursor-pointer text-[11px] font-semibold flex items-center gap-1 transition-colors"
+            >
+              <RefreshCw className="w-3 h-3 text-[#ff9000]" />
+              <span>Sync Bucket</span>
+            </button>
           </div>
 
           {/* Success Banner */}
@@ -976,6 +1054,26 @@ export const ModerationDashboard: React.FC<ModerationDashboardProps> = ({
                 title="Refresh catalog"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${loadingVideos ? 'animate-spin' : ''}`} />
+              </button>
+
+              <button
+                onClick={async () => {
+                  setLoadingVideos(true);
+                  try {
+                    await fetch('/api/supabase/sync', { method: 'POST' });
+                    await fetchAdminVideos();
+                    onVideoUploaded?.();
+                  } catch (e) {
+                    console.warn('Sync failed:', e);
+                  } finally {
+                    setLoadingVideos(false);
+                  }
+                }}
+                className="px-2.5 py-1 rounded-lg bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-700/80 text-emerald-300 text-xs font-semibold cursor-pointer transition-all flex items-center gap-1 active:scale-95 shadow-sm"
+                title="Scan and display all videos from the single shared Supabase bucket 'videos'"
+              >
+                <Database className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Sync Supabase Bucket</span>
               </button>
 
               <button
