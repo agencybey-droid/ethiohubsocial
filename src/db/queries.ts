@@ -185,6 +185,8 @@ export async function createVideo(data: {
   encryptionKeyId?: string;
   encryptionHash?: string;
   isPeerReviewed?: boolean;
+  isApproved?: boolean;
+  isRemoved?: boolean;
   isShort?: boolean;
   isSupabaseStored?: boolean;
   supabasePath?: string;

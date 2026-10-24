@@ -180,7 +180,7 @@ export const ModerationDashboard: React.FC<ModerationDashboardProps> = ({
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [accessLevel, setAccessLevel] = useState<'public' | 'institutional' | 'sensitive_academic'>('public');
   const [tags, setTags] = useState('ethiohub, video, education');
-  const [educatorName, setEducatorName] = useState(user?.displayName || 'Admin Editor');
+  const [educatorName, setEducatorName] = useState('Alex Rivers (Student)');
   const [duration, setDuration] = useState('10:00');
   const [isPeerReviewed, setIsPeerReviewed] = useState(true);
   const [autoApprove, setAutoApprove] = useState(true);
@@ -387,9 +387,9 @@ export const ModerationDashboard: React.FC<ModerationDashboardProps> = ({
         durationSec: finalDurationSec,
         category,
         tags: parsedTags,
-        educatorId: user?.uid || 'admin-portal',
-        educatorName: educatorName.trim() || 'Admin Team',
-        educatorAvatar: user?.avatarUrl,
+        educatorId: 'student-demo-uid',
+        educatorName: educatorName.trim() || 'Alex Rivers (Student)',
+        educatorAvatar: user?.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
         accessLevel,
         isShort,
         isApproved: autoApprove,
@@ -417,6 +417,7 @@ export const ModerationDashboard: React.FC<ModerationDashboardProps> = ({
         setSelectedFile(null);
         setCustomVideoUrl('');
         setCustomThumbnailUrl('');
+        setGeneratedThumbnail('');
 
         // Notify parent to refresh catalogs
         onVideoUploaded?.();
@@ -978,9 +979,9 @@ export const ModerationDashboard: React.FC<ModerationDashboardProps> = ({
               </button>
 
               <button
-                onClick={() => {
+                onClick={async () => {
                   if (window.confirm('Do you want to clear all sample demo placeholders from the catalog? Only your real uploaded videos will remain.')) {
-                    clearAllPlaceholders();
+                    await clearAllPlaceholders();
                     fetchAdminVideos();
                     onVideoUploaded?.();
                   }
@@ -993,8 +994,8 @@ export const ModerationDashboard: React.FC<ModerationDashboardProps> = ({
               </button>
 
               <button
-                onClick={() => {
-                  restorePlaceholders();
+                onClick={async () => {
+                  await restorePlaceholders();
                   fetchAdminVideos();
                   onVideoUploaded?.();
                 }}

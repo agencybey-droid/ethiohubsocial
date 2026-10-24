@@ -62,9 +62,9 @@ export const SEED_VIDEOS: VideoRecord[] = [
     durationSec: 755,
     category: 'Culture',
     tags: '["Coffee", "Tradition", "Ceremony", "Culture"]',
-    educatorId: 'edu-marcus-uid',
-    educatorName: 'Bunna Stories',
-    educatorAvatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=150&auto=format&fit=crop&q=80',
+    educatorId: 'student-demo-uid',
+    educatorName: 'Alex Rivers (Student)',
+    educatorAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
     views: 950000,
     likes: 61200,
     dislikes: 410,
@@ -87,9 +87,9 @@ export const SEED_VIDEOS: VideoRecord[] = [
     durationSec: 1868,
     category: 'Medical',
     tags: '["Cardiology", "Surgery", "Medical", "Clinical"]',
-    educatorId: 'edu-marcus-uid',
-    educatorName: 'Black Lion Hospital Clinical',
-    educatorAvatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=150&auto=format&fit=crop&q=80',
+    educatorId: 'student-demo-uid',
+    educatorName: 'Alex Rivers (Student)',
+    educatorAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
     views: 521900,
     likes: 29800,
     dislikes: 190,
@@ -112,9 +112,9 @@ export const SEED_VIDEOS: VideoRecord[] = [
     durationSec: 920,
     category: 'Nature & Wildlife',
     tags: '["Nature", "Simien", "Wildlife", "Geology"]',
-    educatorId: 'edu-eleanor-uid',
-    educatorName: 'Wild Earth Docu',
-    educatorAvatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80',
+    educatorId: 'student-demo-uid',
+    educatorName: 'Alex Rivers (Student)',
+    educatorAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
     views: 481000,
     likes: 29400,
     dislikes: 310,
@@ -137,9 +137,9 @@ export const SEED_VIDEOS: VideoRecord[] = [
     durationSec: 1370,
     category: 'Music & Arts',
     tags: '["EthioJazz", "Music Theory", "Jazz", "Culture"]',
-    educatorId: 'edu-alan-uid',
-    educatorName: 'Addis Sound Archive',
-    educatorAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
+    educatorId: 'student-demo-uid',
+    educatorName: 'Alex Rivers (Student)',
+    educatorAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
     views: 724000,
     likes: 48900,
     dislikes: 350,
@@ -162,9 +162,9 @@ export const SEED_VIDEOS: VideoRecord[] = [
     durationSec: 1122,
     category: 'History',
     tags: '["History", "Architecture", "Lalibela", "Documentary"]',
-    educatorId: 'edu-eleanor-uid',
-    educatorName: 'Heritage Expeditions',
-    educatorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+    educatorId: 'student-demo-uid',
+    educatorName: 'Alex Rivers (Student)',
+    educatorAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
     views: 642100,
     likes: 38400,
     dislikes: 420,
@@ -187,9 +187,9 @@ export const SEED_VIDEOS: VideoRecord[] = [
     durationSec: 1455,
     category: 'Technology',
     tags: '["AI", "Neural Networks", "Calculus", "Python"]',
-    educatorId: 'edu-alan-uid',
-    educatorName: 'CodeLab Africa',
-    educatorAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+    educatorId: 'student-demo-uid',
+    educatorName: 'Alex Rivers (Student)',
+    educatorAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
     views: 891200,
     likes: 52100,
     dislikes: 610,
@@ -213,9 +213,9 @@ export const SEED_SHORTS: VideoRecord[] = [
     duration: '0:35',
     durationSec: 35,
     category: 'Culture',
-    educatorId: 'creator-coffee',
-    educatorName: 'Bunna Stories',
-    educatorAvatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=150&auto=format&fit=crop&q=80',
+    educatorId: 'student-demo-uid',
+    educatorName: 'Alex Rivers (Student)',
+    educatorAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
     views: 34100,
     likes: 2190,
     dislikes: 12,
@@ -233,8 +233,9 @@ export const SEED_SHORTS: VideoRecord[] = [
     duration: '0:30',
     durationSec: 30,
     category: 'History',
-    educatorId: 'creator-heritage',
-    educatorName: 'Heritage Expeditions',
+    educatorId: 'student-demo-uid',
+    educatorName: 'Alex Rivers (Student)',
+    educatorAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
     views: 18200,
     likes: 1420,
     dislikes: 9,
@@ -252,8 +253,9 @@ export const SEED_SHORTS: VideoRecord[] = [
     duration: '0:28',
     durationSec: 28,
     category: 'Nature & Wildlife',
-    educatorId: 'creator-wild',
-    educatorName: 'Wild Earth Docu',
+    educatorId: 'student-demo-uid',
+    educatorName: 'Alex Rivers (Student)',
+    educatorAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
     views: 29500,
     likes: 2840,
     dislikes: 15,
@@ -271,8 +273,9 @@ export const SEED_SHORTS: VideoRecord[] = [
     duration: '0:45',
     durationSec: 45,
     category: 'Technology',
-    educatorId: 'creator-code',
-    educatorName: 'CodeLab Africa',
+    educatorId: 'student-demo-uid',
+    educatorName: 'Alex Rivers (Student)',
+    educatorAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
     views: 45100,
     likes: 4120,
     dislikes: 22,
@@ -461,6 +464,110 @@ export function deleteLocalVideo(videoId: number): void {
   }
 }
 
+// Helper to convert Blob to base64 data string for database syncing
+export function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      resolve(reader.result as string);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+let syncInProgress = false;
+let hasSynced = false;
+
+/**
+ * Automatically sync any videos stored locally in the browser into Cloud SQL PostgreSQL,
+ * ensuring they are immediately available to all visitors across every device, phone, and browser.
+ */
+export async function syncLocalVideosToServer(): Promise<void> {
+  if (typeof window === 'undefined' || syncInProgress || hasSynced) return;
+  syncInProgress = true;
+  try {
+    const localVideos = getLocalVideos();
+    if (!localVideos.length) {
+      hasSynced = true;
+      return;
+    }
+
+    // Normalise any local videos to Alex Rivers (Student)
+    let needsLocalUpdate = false;
+    const normalizedLocal = localVideos.map((v) => {
+      if (v.educatorName !== 'Alex Rivers (Student)' || !v.educatorAvatar) {
+        needsLocalUpdate = true;
+        return {
+          ...v,
+          educatorName: 'Alex Rivers (Student)',
+          educatorAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+          educatorId: 'student-demo-uid',
+        };
+      }
+      return v;
+    });
+
+    if (needsLocalUpdate) {
+      localStorage.setItem(LOCAL_VIDEOS_KEY, JSON.stringify(normalizedLocal));
+    }
+
+    const itemsToSync = [];
+    for (const v of normalizedLocal) {
+      let videoData: string | undefined;
+      try {
+        const blob = await getVideoBlob(v.id);
+        if (blob) {
+          videoData = await blobToBase64(blob);
+        }
+      } catch {}
+
+      itemsToSync.push({
+        id: v.id,
+        title: v.title,
+        description: v.description,
+        videoUrl: v.videoUrl,
+        thumbnailUrl: v.thumbnailUrl,
+        previewUrl: v.previewUrl,
+        duration: v.duration,
+        durationSec: v.durationSec,
+        category: v.category,
+        tags: v.tags,
+        educatorId: 'student-demo-uid',
+        educatorName: 'Alex Rivers (Student)',
+        educatorAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+        isShort: !!v.isShort,
+        isPeerReviewed: !!v.isPeerReviewed,
+        isApproved: true,
+        videoData,
+      });
+    }
+
+    if (itemsToSync.length > 0) {
+      await fetch('/api/videos/sync-local', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videos: itemsToSync }),
+      });
+    }
+    hasSynced = true;
+  } catch (err) {
+    console.warn('Sync local videos to server encountered error:', err);
+  } finally {
+    syncInProgress = false;
+  }
+}
+
+// Determines if a video should be kept in catalogs:
+// Videos created by Alex Rivers (Student) are protected and displayed everywhere!
+function shouldKeepVideo(v: VideoRecord, removedIds: Set<number>): boolean {
+  if (v.isRemoved) return false;
+  if (v.educatorName?.includes('Alex Rivers') || v.educatorId === 'student-demo-uid') {
+    return true;
+  }
+  return !removedIds.has(v.id);
+}
+
 /**
  * Fetch all catalog videos with category & search filtering, seamlessly
  * merging server data and local storage uploads with fallback support.
@@ -470,21 +577,22 @@ export async function getCatalogVideos(params: {
   search?: string;
   sort?: string;
 }): Promise<VideoRecord[]> {
+  syncLocalVideosToServer().catch(() => {});
   const removedIds = getRemovedVideoIds();
   const query = new URLSearchParams();
   if (params.sort) query.set('sort', params.sort);
   if (params.category && params.category !== 'All') query.set('category', params.category);
   if (params.search && params.search.trim()) query.set('search', params.search.trim());
 
-  const localUploads = getLocalVideos().filter((v) => !v.isShort && !v.isRemoved && !removedIds.has(v.id));
+  const localUploads = getLocalVideos().filter((v) => !v.isShort && shouldKeepVideo(v, removedIds));
   const result = await safeFetchJson<VideoRecord[]>(`/api/videos?${query.toString()}`);
 
   let baseList: VideoRecord[] = [];
   if (result.ok && Array.isArray(result.data)) {
-    baseList = result.data.filter((v) => !removedIds.has(v.id));
+    baseList = result.data.filter((v) => shouldKeepVideo(v, removedIds));
   } else {
     // Fallback to rich seed list if backend is offline or static Vercel deployment
-    baseList = SEED_VIDEOS.filter((v) => !removedIds.has(v.id));
+    baseList = SEED_VIDEOS.filter((v) => shouldKeepVideo(v, removedIds));
     if (params.category && params.category !== 'All') {
       baseList = baseList.filter((v) => v.category === params.category);
     }
@@ -515,49 +623,51 @@ export async function getCatalogVideos(params: {
     return true;
   });
 
-  return [...filteredLocal, ...baseList].filter((v) => !removedIds.has(v.id));
+  return [...filteredLocal, ...baseList].filter((v) => shouldKeepVideo(v, removedIds));
 }
 
 /**
  * Fetch shorts reels catalog with local storage merge and fallback
  */
 export async function getShortsCatalog(): Promise<VideoRecord[]> {
+  syncLocalVideosToServer().catch(() => {});
   const removedIds = getRemovedVideoIds();
-  const localShorts = getLocalVideos().filter((v) => v.isShort && !v.isRemoved && !removedIds.has(v.id));
+  const localShorts = getLocalVideos().filter((v) => v.isShort && shouldKeepVideo(v, removedIds));
   const result = await safeFetchJson<VideoRecord[]>('/api/shorts');
 
   let baseList: VideoRecord[] = [];
   if (result.ok && Array.isArray(result.data)) {
-    baseList = result.data.filter((v) => !removedIds.has(v.id));
+    baseList = result.data.filter((v) => shouldKeepVideo(v, removedIds));
   } else {
-    baseList = SEED_SHORTS.filter((v) => !removedIds.has(v.id));
+    baseList = SEED_SHORTS.filter((v) => shouldKeepVideo(v, removedIds));
   }
 
   const existingIds = new Set(baseList.map((v) => v.id));
   const filteredLocal = localShorts.filter((v) => !existingIds.has(v.id));
 
-  return [...filteredLocal, ...baseList].filter((v) => !removedIds.has(v.id));
+  return [...filteredLocal, ...baseList].filter((v) => shouldKeepVideo(v, removedIds));
 }
 
 /**
  * Fetch all videos for Admin Management (including shorts and all categories)
  */
 export async function getAdminVideosCatalog(): Promise<VideoRecord[]> {
+  syncLocalVideosToServer().catch(() => {});
   const removedIds = getRemovedVideoIds();
-  const localVideos = getLocalVideos().filter((v) => !removedIds.has(v.id));
+  const localVideos = getLocalVideos().filter((v) => shouldKeepVideo(v, removedIds));
   const result = await safeFetchJson<VideoRecord[]>('/api/admin/videos');
 
   let baseList: VideoRecord[] = [];
   if (result.ok && Array.isArray(result.data)) {
-    baseList = result.data.filter((v) => !removedIds.has(v.id));
+    baseList = result.data.filter((v) => shouldKeepVideo(v, removedIds));
   } else {
-    baseList = [...SEED_VIDEOS, ...SEED_SHORTS].filter((v) => !removedIds.has(v.id));
+    baseList = [...SEED_VIDEOS, ...SEED_SHORTS].filter((v) => shouldKeepVideo(v, removedIds));
   }
 
   const existingIds = new Set(baseList.map((v) => v.id));
   const filteredLocal = localVideos.filter((v) => !existingIds.has(v.id));
 
-  return [...filteredLocal, ...baseList].filter((v) => !removedIds.has(v.id));
+  return [...filteredLocal, ...baseList].filter((v) => shouldKeepVideo(v, removedIds));
 }
 
 /**
@@ -604,13 +714,56 @@ export async function publishVideo(payload: {
     duration: payload.duration || '15:00',
     durationSec: payload.durationSec || 900,
     category: payload.category || 'Science & Technology',
-    educatorId: payload.educatorId || 'admin-portal',
-    educatorName: payload.educatorName || 'Verified Educator',
+    educatorId: payload.educatorId && payload.educatorId !== 'admin-portal' ? payload.educatorId : 'student-demo-uid',
+    educatorName: 'Alex Rivers (Student)',
+    educatorAvatar: payload.educatorAvatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
     accessLevel: payload.accessLevel || 'public',
     isApproved: payload.isApproved !== undefined ? payload.isApproved : true,
   };
 
-  // 1. Try sending to Express / Cloud SQL backend
+  // 1. If an actual video file is provided, upload directly via multipart FormData
+  // to ensure universal availability across ALL browsers and mobile devices!
+  if (payload.videoFile) {
+    try {
+      const formData = new FormData();
+      formData.append('video', payload.videoFile);
+      if (cleanPayload.thumbnailUrl && cleanPayload.thumbnailUrl.startsWith('data:image/')) {
+        formData.append('thumbnailData', cleanPayload.thumbnailUrl);
+      } else {
+        formData.append('thumbnailUrl', cleanPayload.thumbnailUrl);
+      }
+      formData.append('title', cleanPayload.title);
+      formData.append('description', cleanPayload.description);
+      formData.append('duration', cleanPayload.duration);
+      formData.append('durationSec', cleanPayload.durationSec.toString());
+      formData.append('category', cleanPayload.category);
+      formData.append('tags', typeof cleanPayload.tags === 'string' ? cleanPayload.tags : JSON.stringify(cleanPayload.tags || []));
+      formData.append('educatorId', cleanPayload.educatorId);
+      formData.append('educatorName', cleanPayload.educatorName);
+      formData.append('accessLevel', cleanPayload.accessLevel);
+      formData.append('isShort', cleanPayload.isShort ? 'true' : 'false');
+      formData.append('isPeerReviewed', cleanPayload.isPeerReviewed ? 'true' : 'false');
+      formData.append('autoApprove', cleanPayload.isApproved ? 'true' : 'false');
+
+      const uploadRes = await fetch('/api/videos/upload-file', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (uploadRes.ok) {
+        const serverVideo = await uploadRes.json();
+        if (serverVideo && serverVideo.id) {
+          await saveVideoBlob(serverVideo.id, payload.videoFile);
+          saveLocalVideo(serverVideo);
+          return { success: true, video: serverVideo, mode: 'server' };
+        }
+      }
+    } catch (err) {
+      console.warn('Direct server multipart upload failed, attempting JSON fallback:', err);
+    }
+  }
+
+  // 2. Try sending JSON to Express / Cloud SQL backend
   const res = await safeFetchJson<VideoRecord>('/api/videos/upload', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

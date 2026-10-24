@@ -254,9 +254,9 @@ app.post('/api/videos/upload', async (req, res) => {
       durationSec: durationSec || 900,
       category: category || 'Science & Technology',
       tags: typeof tags === 'string' ? tags : JSON.stringify(tags || []),
-      educatorId: cleanEducatorId,
-      educatorName: educatorName || 'Verified Educator',
-      educatorAvatar: educatorAvatar || null,
+      educatorId: cleanEducatorId && cleanEducatorId !== 'admin-portal' ? cleanEducatorId : 'student-demo-uid',
+      educatorName: (educatorName && educatorName !== 'Verified Educator' && educatorName !== 'Admin Team') ? educatorName : 'Alex Rivers (Student)',
+      educatorAvatar: educatorAvatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
       accessLevel: accessLevel || 'public',
       isEncrypted: isEncrypted !== undefined ? isEncrypted : false,
       encryptionAlgorithm: encryptionAlgorithm || 'AES-256-GCM',
@@ -380,15 +380,15 @@ app.post('/api/videos/upload-file', uploadMiddleware.fields([
       durationSec: cleanDurationSec,
       category: category || 'Science & Technology',
       tags: typeof tags === 'string' ? tags : JSON.stringify(tags || []),
-      educatorId: educatorId || 'admin-portal',
-      educatorName: educatorName || 'Admin Team',
-      educatorAvatar: educatorAvatar || null,
+      educatorId: (educatorId && educatorId !== 'admin-portal') ? educatorId : 'student-demo-uid',
+      educatorName: (educatorName && educatorName !== 'Admin Team') ? educatorName : 'Alex Rivers (Student)',
+      educatorAvatar: educatorAvatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
       accessLevel: accessLevel || 'public',
       isEncrypted: false,
       isPeerReviewed: isPeerReviewed === 'true' || isPeerReviewed === true,
       isShort: isShortBool,
       isApproved: autoApprove !== 'false' && autoApprove !== false,
-      videoData,
+      videoData: videoData || undefined,
       mimeType,
       fileSize,
     });
@@ -502,6 +502,55 @@ app.post('/api/admin/restore-demo-placeholders', async (req, res) => {
   } catch (error: any) {
     console.error('Failed to restore demo placeholders:', error);
     res.status(500).json({ error: error.message || 'Failed to restore demo placeholders' });
+  }
+});
+
+// Sync locally uploaded videos (e.g. from Alex Rivers) to Cloud SQL so all visitors can see them
+app.post('/api/videos/sync-local', async (req, res) => {
+  try {
+    const { videos: localList } = req.body;
+    if (!Array.isArray(localList)) {
+      return res.status(400).json({ error: 'Array of videos expected' });
+    }
+
+    const synced = [];
+    for (const v of localList) {
+      if (!v.title) continue;
+      const cleanTitle = v.title.trim();
+      const existing = await getVideos({ search: cleanTitle });
+      const found = existing.find((item) => item.title.toLowerCase() === cleanTitle.toLowerCase());
+      if (!found) {
+        const created = await createVideo({
+          title: cleanTitle,
+          description: (v.description || `Educational video: ${cleanTitle}`).trim(),
+          videoUrl: v.videoUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+          thumbnailUrl: v.thumbnailUrl || 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&auto=format&fit=crop&q=80',
+          previewUrl: v.previewUrl || v.thumbnailUrl,
+          duration: v.duration || '10:00',
+          durationSec: v.durationSec || 600,
+          category: v.category || 'Science & Technology',
+          tags: typeof v.tags === 'string' ? v.tags : JSON.stringify(v.tags || []),
+          educatorId: 'student-demo-uid',
+          educatorName: 'Alex Rivers (Student)',
+          educatorAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+          accessLevel: 'public',
+          isEncrypted: false,
+          isPeerReviewed: true,
+          isApproved: true,
+          isRemoved: false,
+          isShort: !!v.isShort,
+          videoData: v.videoData || undefined,
+          mimeType: v.mimeType || 'video/mp4',
+          fileSize: v.fileSize || 0,
+        });
+        synced.push(created);
+      }
+    }
+
+    res.json({ success: true, syncedCount: synced.length, synced });
+  } catch (error: any) {
+    console.error('Failed to sync local videos:', error);
+    res.status(500).json({ error: error.message || 'Failed to sync local videos' });
   }
 });
 
