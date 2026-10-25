@@ -8,6 +8,7 @@ import {
   X,
   Volume2,
   VolumeX,
+  Shield,
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -112,6 +113,19 @@ export const Header: React.FC<HeaderProps> = ({
               አማ
             </button>
           </div>
+
+          {/* Admin Studio Navigation Link */}
+          <button
+            onClick={() => {
+              window.history.pushState({}, '', '/admin');
+              window.dispatchEvent(new PopStateEvent('popstate'));
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-300 hover:text-white text-xs font-semibold transition-all duration-150 active:scale-95 cursor-pointer shadow-sm"
+            title="Admin Video Studio & Direct Uploader"
+          >
+            <Shield className="w-3.5 h-3.5 text-[#ff9000]" />
+            <span className="hidden sm:inline">Admin</span>
+          </button>
 
           {/* Notifications Bell */}
           <div className="relative">

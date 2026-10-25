@@ -242,10 +242,13 @@ app.post('/api/videos/upload', async (req, res) => {
       return res.status(400).json({ error: 'Video title is required' });
     }
 
-    const cleanDescription = (description || `Educational video lecture: ${cleanTitle}`).trim();
-    const cleanVideoUrl = (videoUrl || '').trim() || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+    const cleanDescription = (description || `Educational video: ${cleanTitle}`).trim();
+    const cleanVideoUrl = (videoUrl || '').trim();
+    if (!cleanVideoUrl && !req.body.videoData) {
+      return res.status(400).json({ error: 'Valid video URL or video file is required' });
+    }
     const cleanThumbUrl = (thumbnailUrl || previewUrl || '').trim() || 'https://images.unsplash.com/photo-1516426122078-c23e76319801?w=800&auto=format&fit=crop&q=80';
-    const cleanEducatorId = educatorId || 'admin-portal';
+    const cleanEducatorId = educatorId || 'student-demo-uid';
 
     const video = await createVideo({
       title: cleanTitle,
@@ -373,10 +376,17 @@ app.post('/api/videos/upload-file', uploadMiddleware.fields([
     const cleanDurationSec = durationSec ? parseInt(durationSec, 10) : 600;
     const isShortBool = isShort === 'true' || isShort === true || (cleanDurationSec <= 60);
 
+    const videoUrl = videoFile 
+      ? `/uploads/videos/${videoFile.filename}` 
+      : ((req.body.videoUrl || '').trim());
+    if (!videoUrl) {
+      return res.status(400).json({ error: 'Video file or videoUrl is required' });
+    }
+
     const video = await createVideo({
       title: cleanTitle,
       description: cleanDesc,
-      videoUrl: videoFile ? `/uploads/videos/${videoFile.filename}` : (req.body.videoUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'),
+      videoUrl,
       thumbnailUrl,
       previewUrl: thumbnailUrl,
       duration: duration || '10:00',
@@ -497,18 +507,12 @@ app.post('/api/admin/clear-demo-placeholders', async (req, res) => {
   }
 });
 
-// Admin: Restore demo placeholders in database for all visitors
+// Admin: Restore demo placeholders - disabled per user requirement
 app.post('/api/admin/restore-demo-placeholders', async (req, res) => {
-  try {
-    const success = await restoreDemoPlaceholdersInDB();
-    res.json({ success, message: 'Demo placeholders restored for all visitors.' });
-  } catch (error: any) {
-    console.error('Failed to restore demo placeholders:', error);
-    res.status(500).json({ error: error.message || 'Failed to restore demo placeholders' });
-  }
+  res.json({ success: true, message: 'Demo placeholders are disabled.' });
 });
 
-// Sync locally uploaded videos (e.g. from Alex Rivers) to Cloud SQL so all visitors can see them
+// Sync locally uploaded videos to Cloud SQL so all visitors can see them
 app.post('/api/videos/sync-local', async (req, res) => {
   try {
     const { videos: localList } = req.body;
@@ -518,20 +522,23 @@ app.post('/api/videos/sync-local', async (req, res) => {
 
     const synced = [];
     for (const v of localList) {
-      if (!v.title) continue;
+      if (!v || !v.title || !v.videoUrl) continue;
+      if (v.id && v.id <= 12) continue;
+      if (v.videoUrl.includes('commondatastorage.googleapis.com') || v.videoUrl.includes('gtv-videos-bucket')) continue;
+
       const cleanTitle = v.title.trim();
       const existing = await getVideos({ search: cleanTitle });
-      const found = existing.find((item) => item.title.toLowerCase() === cleanTitle.toLowerCase());
+      const found = existing.find((item) => item.title.toLowerCase() === cleanTitle.toLowerCase() || item.videoUrl === v.videoUrl);
       if (!found) {
         const created = await createVideo({
           title: cleanTitle,
           description: (v.description || `Educational video: ${cleanTitle}`).trim(),
-          videoUrl: v.videoUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+          videoUrl: v.videoUrl,
           thumbnailUrl: v.thumbnailUrl || 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&auto=format&fit=crop&q=80',
           previewUrl: v.previewUrl || v.thumbnailUrl,
           duration: v.duration || '10:00',
           durationSec: v.durationSec || 600,
-          category: v.category || 'Science & Technology',
+          category: v.category || 'Technology',
           tags: typeof v.tags === 'string' ? v.tags : JSON.stringify(v.tags || []),
           educatorId: 'student-demo-uid',
           educatorName: 'Alex Rivers (Student)',

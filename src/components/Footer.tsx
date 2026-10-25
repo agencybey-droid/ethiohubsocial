@@ -158,8 +158,14 @@ export const Footer: React.FC<FooterProps> = ({ onNavChange, onOpenPermissions }
               <span className="hover:text-amber-400 transition-colors cursor-pointer">{t.footerHelp}</span>
             </li>
             <li>
-              <button onClick={onOpenPermissions} className="hover:text-amber-400 transition-colors cursor-pointer">
-                {t.myAccount}
+              <button
+                onClick={() => {
+                  window.history.pushState({}, '', '/admin');
+                  window.dispatchEvent(new PopStateEvent('popstate'));
+                }}
+                className="hover:text-amber-400 transition-colors cursor-pointer"
+              >
+                Admin Studio
               </button>
             </li>
           </ul>

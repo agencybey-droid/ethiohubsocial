@@ -30,7 +30,6 @@ import {
   getAdminVideosCatalog,
   removeVideoItem,
   clearAllPlaceholders,
-  restorePlaceholders,
 } from '../services/videoService.ts';
 import {
   uploadVideoFileToSupabase,
@@ -90,67 +89,7 @@ const CATEGORIES = [
   'General',
 ];
 
-const VIDEO_PRESETS = [
-  {
-    name: 'Historical Documentary: Ancient Heritage & Architecture',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=800&auto=format&fit=crop&q=80',
-    duration: '14:20',
-    durationSec: 860,
-    category: 'History',
-  },
-  {
-    name: 'Modern Technology & Software Engineering in East Africa',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=800&auto=format&fit=crop&q=80',
-    duration: '22:15',
-    durationSec: 1335,
-    category: 'Technology',
-  },
-  {
-    name: 'Wild Simien Mountains & Endemic Wildlife Exploration',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1516426122078-c23e76319801?w=800&auto=format&fit=crop&q=80',
-    duration: '18:40',
-    durationSec: 1120,
-    category: 'Nature & Wildlife',
-  },
-  {
-    name: 'Traditional Ethiopian Cultural Rhythms & Folk Instruments',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800&auto=format&fit=crop&q=80',
-    duration: '12:05',
-    durationSec: 725,
-    category: 'Music & Arts',
-  },
-];
 
-const SHORT_PRESETS = [
-  {
-    name: 'Lalibela Rock-Hewn Architectural Wonder (Reel)',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=600&auto=format&fit=crop&q=80',
-    duration: '0:35',
-    durationSec: 35,
-    category: 'History',
-  },
-  {
-    name: 'Quick Tech Tip: Building Scalable Cloud Apps (Reel)',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=600&auto=format&fit=crop&q=80',
-    duration: '0:42',
-    durationSec: 42,
-    category: 'Technology',
-  },
-  {
-    name: 'Addis Ababa City Lights & Vibrant Nightlife (Reel)',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyBlazes.mp4',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1519501025264-65ba15a82390?w=600&auto=format&fit=crop&q=80',
-    duration: '0:28',
-    durationSec: 28,
-    category: 'Culture',
-  },
-];
 
 export const ModerationDashboard: React.FC<ModerationDashboardProps> = ({
   onInspectVideo,
@@ -192,8 +131,7 @@ export const ModerationDashboard: React.FC<ModerationDashboardProps> = ({
   const [autoApprove, setAutoApprove] = useState(true);
 
   // Video source - Defaults to real local file upload
-  const [videoSourceType, setVideoSourceType] = useState<'preset' | 'file' | 'url'>('file');
-  const [selectedPresetIndex, setSelectedPresetIndex] = useState(0);
+  const [videoSourceType, setVideoSourceType] = useState<'file' | 'url'>('file');
   const [customVideoUrl, setCustomVideoUrl] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [generatedThumbnail, setGeneratedThumbnail] = useState<string>('');
@@ -352,13 +290,29 @@ export const ModerationDashboard: React.FC<ModerationDashboardProps> = ({
 
     try {
       const isShort = uploadMode === 'short';
-      const presetList = isShort ? SHORT_PRESETS : VIDEO_PRESETS;
-      const currentPreset = presetList[selectedPresetIndex % presetList.length];
 
-      let finalVideoUrl = currentPreset.videoUrl;
-      let finalThumbUrl = currentPreset.thumbnailUrl;
-      let finalDuration = isShort ? currentPreset.duration : duration || currentPreset.duration;
-      let finalDurationSec = isShort ? currentPreset.durationSec : 600;
+      if (videoSourceType === 'file' && !selectedFile) {
+        setUploadErrorMessage(
+          isAmharic
+            ? 'እባክዎ ከመሳሪያዎ ላይ የቪዲዮ ፋይል ይምረጡ (.mp4, .webm, .mov)'
+            : 'Please choose a video file (.mp4, .webm, .mov) from your device to upload.'
+        );
+        setUploading(false);
+        return;
+      }
+
+      if (videoSourceType === 'url' && !customVideoUrl.trim()) {
+        setUploadErrorMessage(
+          isAmharic ? 'እባክዎ ትክክለኛ የቪዲዮ አድራሻ (URL) ያስገቡ' : 'Please provide a valid video URL.'
+        );
+        setUploading(false);
+        return;
+      }
+
+      let finalVideoUrl = customVideoUrl.trim();
+      let finalThumbUrl = customThumbnailUrl.trim() || generatedThumbnail || 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&auto=format&fit=crop&q=80';
+      let finalDuration = duration || (isShort ? '0:45' : '10:00');
+      let finalDurationSec = isShort ? 45 : 600;
 
       let supabasePath: string | undefined;
       let supabaseBucket = UNIVERSAL_VIDEO_BUCKET;
@@ -603,7 +557,6 @@ export const ModerationDashboard: React.FC<ModerationDashboardProps> = ({
                 type="button"
                 onClick={() => {
                   setUploadMode('standard');
-                  setSelectedPresetIndex(0);
                 }}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all duration-150 active:scale-95 cursor-pointer font-semibold ${
                   uploadMode === 'standard'
@@ -618,7 +571,6 @@ export const ModerationDashboard: React.FC<ModerationDashboardProps> = ({
                 type="button"
                 onClick={() => {
                   setUploadMode('short');
-                  setSelectedPresetIndex(0);
                 }}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all duration-150 active:scale-95 cursor-pointer font-semibold ${
                   uploadMode === 'short'
@@ -716,17 +668,6 @@ export const ModerationDashboard: React.FC<ModerationDashboardProps> = ({
                   >
                     {isAmharic ? 'ቀጥታ አድራሻ (URL)' : 'Direct URL'}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setVideoSourceType('preset')}
-                    className={`px-2.5 py-1 rounded transition-colors cursor-pointer text-neutral-500 hover:text-neutral-300 ${
-                      videoSourceType === 'preset'
-                        ? 'bg-neutral-800 text-white font-bold'
-                        : ''
-                    }`}
-                  >
-                    {isAmharic ? 'ናሙና ቅድመ-ዝግጅት' : 'Sample Presets'}
-                  </button>
                 </div>
               </div>
 
@@ -756,9 +697,9 @@ export const ModerationDashboard: React.FC<ModerationDashboardProps> = ({
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="w-full sm:w-auto px-4 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer border border-neutral-700"
+                      className="w-full sm:w-auto px-4 py-2.5 bg-[#ff9000] hover:bg-[#ffa31a] active:bg-[#e68200] text-black rounded-lg font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-md"
                     >
-                      <Upload className="w-4 h-4 text-[#ff9000]" />
+                      <Upload className="w-4 h-4 text-black" />
                       <span>{selectedFile ? 'Change Selected Video' : 'Choose Video File from Device (.mp4, .webm, .mov)'}</span>
                     </button>
                     {selectedFile ? (
@@ -767,7 +708,7 @@ export const ModerationDashboard: React.FC<ModerationDashboardProps> = ({
                       </div>
                     ) : (
                       <span className="text-neutral-500 text-[11px]">
-                        Select any video file directly from your device. It will be stored reliably in the database and browser storage.
+                        Select any video file directly from your device. It will be uploaded directly to Supabase storage.
                       </span>
                     )}
                   </div>
@@ -781,7 +722,7 @@ export const ModerationDashboard: React.FC<ModerationDashboardProps> = ({
                       />
                       <div className="text-[11px] text-neutral-300">
                         <span className="text-emerald-400 font-semibold block">Automatic Video Poster Frame Generated</span>
-                        <span className="text-neutral-500 text-[10px]">Captured from your uploaded video. No dummy placeholders used.</span>
+                        <span className="text-neutral-500 text-[10px]">Captured directly from your uploaded video.</span>
                       </div>
                     </div>
                   )}
@@ -797,39 +738,6 @@ export const ModerationDashboard: React.FC<ModerationDashboardProps> = ({
                     placeholder="https://example.com/video.mp4"
                     className="w-full bg-neutral-900 border border-neutral-800 rounded-lg p-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-[#ff9000]"
                   />
-                </div>
-              )}
-
-              {videoSourceType === 'preset' && (
-                <div className="space-y-2 pt-1">
-                  <p className="text-[11px] text-neutral-400">Optional demo presets for quick testing:</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
-                    {(uploadMode === 'short' ? SHORT_PRESETS : VIDEO_PRESETS).map((preset, idx) => (
-                      <div
-                        key={preset.name}
-                        onClick={() => {
-                          setSelectedPresetIndex(idx);
-                          if (!title) setTitle(preset.name);
-                          setCategory(preset.category);
-                        }}
-                        className={`p-2.5 rounded-xl border flex items-center gap-3 cursor-pointer transition-all ${
-                          selectedPresetIndex === idx
-                            ? 'bg-[#ff9000]/10 border-[#ff9000] text-white shadow-sm'
-                            : 'bg-neutral-900 border-neutral-800/80 text-neutral-400 hover:border-neutral-700'
-                        }`}
-                      >
-                        <img
-                          src={preset.thumbnailUrl}
-                          alt=""
-                          className="w-12 h-10 object-cover rounded-md shrink-0 border border-neutral-700"
-                        />
-                        <div className="truncate">
-                          <p className="font-semibold text-white truncate text-[11px]">{preset.name}</p>
-                          <p className="text-[10px] text-neutral-400">{preset.category} · {preset.duration}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
                 </div>
               )}
             </div>
@@ -1091,17 +999,7 @@ export const ModerationDashboard: React.FC<ModerationDashboardProps> = ({
                 <span>Clear Demo Placeholders</span>
               </button>
 
-              <button
-                onClick={async () => {
-                  await restorePlaceholders();
-                  fetchAdminVideos();
-                  onVideoUploaded?.();
-                }}
-                className="px-2 py-1 rounded-lg bg-neutral-950 hover:bg-neutral-800 border border-neutral-800 text-neutral-400 hover:text-white text-xs cursor-pointer transition-all active:scale-95"
-                title="Restore demo videos"
-              >
-                <span>Restore Demos</span>
-              </button>
+
             </div>
           </div>
 

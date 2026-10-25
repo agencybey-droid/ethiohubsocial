@@ -11,40 +11,7 @@ interface PostShortModalProps {
   onSuccess: () => void;
 }
 
-const SHORT_PRESETS = [
-  {
-    name: 'Ethiopian Coffee Roasting Ceremony (35s)',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=600&auto=format&fit=crop&q=80',
-    duration: '0:35',
-    durationSec: 35,
-    category: 'Culture',
-  },
-  {
-    name: 'Ancient Lalibela Monolithic Rock Architecture (30s)',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=600&auto=format&fit=crop&q=80',
-    duration: '0:30',
-    durationSec: 30,
-    category: 'History',
-  },
-  {
-    name: 'Simien Mountains Gelada Baboon Playtime (28s)',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1516426122078-c23e76319801?w=600&auto=format&fit=crop&q=80',
-    duration: '0:28',
-    durationSec: 28,
-    category: 'Nature & Wildlife',
-  },
-  {
-    name: 'Python One-Liner Matrix Vectorization (45s)',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&auto=format&fit=crop&q=80',
-    duration: '0:45',
-    durationSec: 45,
-    category: 'Technology',
-  },
-];
+const SHORT_PRESETS: { name: string; videoUrl: string; thumbnailUrl: string; duration: string; durationSec: number; category: string }[] = [];
 
 export const PostShortModal: React.FC<PostShortModalProps> = ({ isOpen, onClose, onSuccess }) => {
   const { user } = useAuth();

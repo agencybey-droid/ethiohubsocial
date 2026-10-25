@@ -55,241 +55,8 @@ export interface VideoRecord {
 const LOCAL_VIDEOS_KEY = 'ethiohub_uploaded_videos_v2';
 const LOCAL_REPORTS_KEY = 'ethiohub_reports_v2';
 
-export const SEED_VIDEOS: VideoRecord[] = [
-  {
-    id: 5,
-    title: 'Traditional Coffee Ceremony: Origin, Ritual & Chemistry of Roasting',
-    description: 'Step-by-step masterclass covering green bean selection, artisanal pan-roasting kinetics, frankincense aroma pairing, and ceremonial pourings (Abol, Tona, Baraka).',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=800&auto=format&fit=crop&q=80',
-    previewUrl: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&auto=format&fit=crop&q=80',
-    duration: '12:35',
-    durationSec: 755,
-    category: 'Culture',
-    tags: '["Coffee", "Tradition", "Ceremony", "Culture"]',
-    educatorId: 'student-demo-uid',
-    educatorName: 'Alex Rivers (Student)',
-    educatorAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-    views: 950000,
-    likes: 61200,
-    dislikes: 410,
-    accessLevel: 'public',
-    isEncrypted: true,
-    isPeerReviewed: true,
-    isApproved: true,
-    isRemoved: false,
-    isShort: false,
-    createdAt: '2026-10-16T11:00:43.472Z',
-  },
-  {
-    id: 6,
-    title: 'Coronary Artery Bypass Graft (CABG): Clinical Surgery Protocol',
-    description: 'Clinical cardiothoracic surgical demonstration. Demonstrates internal mammary artery harvest and saphenous vein grafting with sternotomy precautions.',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=800&auto=format&fit=crop&q=80',
-    previewUrl: 'https://images.unsplash.com/photo-1530497610245-94d3c16cda28?w=800&auto=format&fit=crop&q=80',
-    duration: '31:08',
-    durationSec: 1868,
-    category: 'Medical',
-    tags: '["Cardiology", "Surgery", "Medical", "Clinical"]',
-    educatorId: 'student-demo-uid',
-    educatorName: 'Alex Rivers (Student)',
-    educatorAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-    views: 521900,
-    likes: 29800,
-    dislikes: 190,
-    accessLevel: 'sensitive_academic',
-    isEncrypted: true,
-    isPeerReviewed: true,
-    isApproved: true,
-    isRemoved: false,
-    isShort: false,
-    createdAt: '2026-10-16T11:00:43.472Z',
-  },
-  {
-    id: 3,
-    title: 'The Simien Mountains: Wildlife & Geology of the Roof of Africa',
-    description: 'High-altitude ecology documentary tracking Gelada baboon communities and geological rift formation of the Ethiopian Highlands.',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1516426122078-c23e76319801?w=800&auto=format&fit=crop&q=80',
-    previewUrl: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80',
-    duration: '15:20',
-    durationSec: 920,
-    category: 'Nature & Wildlife',
-    tags: '["Nature", "Simien", "Wildlife", "Geology"]',
-    educatorId: 'student-demo-uid',
-    educatorName: 'Alex Rivers (Student)',
-    educatorAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-    views: 481000,
-    likes: 29400,
-    dislikes: 310,
-    accessLevel: 'public',
-    isEncrypted: true,
-    isPeerReviewed: true,
-    isApproved: true,
-    isRemoved: false,
-    isShort: false,
-    createdAt: '2026-10-16T11:00:43.472Z',
-  },
-  {
-    id: 4,
-    title: 'Ethio-Jazz Origins: Scale Structures & Poly-Rhythms Explained',
-    description: 'Music theory breakdown analyzing how Mulatu Astatke fused traditional 5-tone pentatonic modal scales with 12-tone jazz harmonies.',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800&auto=format&fit=crop&q=80',
-    previewUrl: 'https://images.unsplash.com/photo-1465847899084-d164df4dedc6?w=800&auto=format&fit=crop&q=80',
-    duration: '22:50',
-    durationSec: 1370,
-    category: 'Music & Arts',
-    tags: '["EthioJazz", "Music Theory", "Jazz", "Culture"]',
-    educatorId: 'student-demo-uid',
-    educatorName: 'Alex Rivers (Student)',
-    educatorAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-    views: 724000,
-    likes: 48900,
-    dislikes: 350,
-    accessLevel: 'public',
-    isEncrypted: true,
-    isPeerReviewed: true,
-    isApproved: true,
-    isRemoved: false,
-    isShort: false,
-    createdAt: '2026-10-16T11:00:43.472Z',
-  },
-  {
-    id: 1,
-    title: 'The Ancient Rock-Hewn Churches of Lalibela: Architectural Secrets',
-    description: 'An in-depth historical exploration of how 11 monolithic medieval churches were carved directly downward from living volcanic rock in the 12th century.',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=800&auto=format&fit=crop&q=80',
-    previewUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80',
-    duration: '18:42',
-    durationSec: 1122,
-    category: 'History',
-    tags: '["History", "Architecture", "Lalibela", "Documentary"]',
-    educatorId: 'student-demo-uid',
-    educatorName: 'Alex Rivers (Student)',
-    educatorAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-    views: 642100,
-    likes: 38400,
-    dislikes: 420,
-    accessLevel: 'public',
-    isEncrypted: true,
-    isPeerReviewed: true,
-    isApproved: true,
-    isRemoved: false,
-    isShort: false,
-    createdAt: '2026-10-16T11:00:43.472Z',
-  },
-  {
-    id: 2,
-    title: 'Deep Neural Networks: Backpropagation & Loss Optimization',
-    description: 'Complete mathematical derivation of automatic differentiation, gradient flow dynamics, and loss landscape optimization in multi-layer perceptrons.',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80',
-    previewUrl: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=800&auto=format&fit=crop&q=80',
-    duration: '24:15',
-    durationSec: 1455,
-    category: 'Technology',
-    tags: '["AI", "Neural Networks", "Calculus", "Python"]',
-    educatorId: 'student-demo-uid',
-    educatorName: 'Alex Rivers (Student)',
-    educatorAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-    views: 891200,
-    likes: 52100,
-    dislikes: 610,
-    accessLevel: 'public',
-    isEncrypted: true,
-    isPeerReviewed: true,
-    isApproved: true,
-    isRemoved: false,
-    isShort: false,
-    createdAt: '2026-10-16T11:00:43.472Z',
-  },
-];
-
-export const SEED_SHORTS: VideoRecord[] = [
-  {
-    id: 7,
-    title: 'How Ethiopian Coffee Ceremony Works in 45 Seconds ☕',
-    description: 'Quick traditional roasting, frankincense aroma, and three ceremonial pourings explained.',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=600&auto=format&fit=crop&q=80',
-    duration: '0:35',
-    durationSec: 35,
-    category: 'Culture',
-    educatorId: 'student-demo-uid',
-    educatorName: 'Alex Rivers (Student)',
-    educatorAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-    views: 34100,
-    likes: 2190,
-    dislikes: 12,
-    isShort: true,
-    isApproved: true,
-    isRemoved: false,
-    createdAt: '2026-10-17T10:00:00.000Z',
-  },
-  {
-    id: 8,
-    title: 'Lalibela Rock-Hewn Architectural Wonder (Reel)',
-    description: 'Marvel at 800-year-old monolithic church carved from living volcanic rock.',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=600&auto=format&fit=crop&q=80',
-    duration: '0:30',
-    durationSec: 30,
-    category: 'History',
-    educatorId: 'student-demo-uid',
-    educatorName: 'Alex Rivers (Student)',
-    educatorAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-    views: 18200,
-    likes: 1420,
-    dislikes: 9,
-    isShort: true,
-    isApproved: true,
-    isRemoved: false,
-    createdAt: '2026-10-18T10:00:00.000Z',
-  },
-  {
-    id: 9,
-    title: 'Simien Mountains Gelada Baboon Playtime (28s)',
-    description: 'Endemic high-altitude wildlife in the Simien National Park roof of Africa.',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1516426122078-c23e76319801?w=600&auto=format&fit=crop&q=80',
-    duration: '0:28',
-    durationSec: 28,
-    category: 'Nature & Wildlife',
-    educatorId: 'student-demo-uid',
-    educatorName: 'Alex Rivers (Student)',
-    educatorAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-    views: 29500,
-    likes: 2840,
-    dislikes: 15,
-    isShort: true,
-    isApproved: true,
-    isRemoved: false,
-    createdAt: '2026-10-19T10:00:00.000Z',
-  },
-  {
-    id: 10,
-    title: 'Python One-Liner Matrix Vectorization (45s)',
-    description: 'Speed up numpy matrix calculations by 100x using broadcasting tricks.',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&auto=format&fit=crop&q=80',
-    duration: '0:45',
-    durationSec: 45,
-    category: 'Technology',
-    educatorId: 'student-demo-uid',
-    educatorName: 'Alex Rivers (Student)',
-    educatorAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-    views: 45100,
-    likes: 4120,
-    dislikes: 22,
-    isShort: true,
-    isApproved: true,
-    isRemoved: false,
-    createdAt: '2026-10-20T10:00:00.000Z',
-  },
-];
+export const SEED_VIDEOS: VideoRecord[] = [];
+export const SEED_SHORTS: VideoRecord[] = [];
 
 // Helper to safely parse JSON responses without throwing Unexpected token 'T'
 export async function safeFetchJson<T>(
@@ -372,18 +139,16 @@ export async function clearAllPlaceholders(): Promise<void> {
   } catch {}
 }
 
-// Restore default demo videos if user wants them back
+// Restore default demo videos - permanently disabled per user request
 export async function restorePlaceholders(): Promise<void> {
+  // Demo placeholders are permanently disabled
   if (typeof window !== 'undefined') {
     try {
       const ids = getRemovedVideoIds();
-      DEMO_PLACEHOLDER_IDS.forEach((id) => ids.delete(id));
+      DEMO_PLACEHOLDER_IDS.forEach((id) => ids.add(id));
       localStorage.setItem(REMOVED_IDS_KEY, JSON.stringify(Array.from(ids)));
     } catch {}
   }
-  try {
-    await safeFetchJson('/api/admin/restore-demo-placeholders', { method: 'POST' });
-  } catch {}
 }
 
 // Increment video views persistently
@@ -433,13 +198,19 @@ export async function recordVideoView(videoId: number, currentViews: number = 0)
   return newViews;
 }
 
-// Read local user uploads from browser storage
+// Read local user uploads from browser storage, filtering out any old demo placeholders
 export function getLocalVideos(): VideoRecord[] {
   if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(LOCAL_VIDEOS_KEY);
     if (!raw) return [];
-    return JSON.parse(raw);
+    const list: VideoRecord[] = JSON.parse(raw);
+    return list.filter((v) => {
+      if (!v || v.id <= 12) return false;
+      if (v.videoUrl?.includes('commondatastorage.googleapis.com')) return false;
+      if (v.videoUrl?.includes('gtv-videos-bucket')) return false;
+      return true;
+    });
   } catch {
     return [];
   }
@@ -564,12 +335,13 @@ export async function syncLocalVideosToServer(): Promise<void> {
 }
 
 // Determines if a video should be kept in catalogs:
-// Videos created by Alex Rivers (Student) are protected and displayed everywhere!
+// Strictly rejects any demo video placeholders; only keeps real user/Supabase uploads!
 function shouldKeepVideo(v: VideoRecord, removedIds: Set<number>): boolean {
+  if (!v) return false;
   if (v.isRemoved) return false;
-  if (v.educatorName?.includes('Alex Rivers') || v.educatorId === 'student-demo-uid') {
-    return true;
-  }
+  // Strictly filter out any sample demo videos
+  if (v.id <= 12 && !v.videoUrl?.includes('supabase.co')) return false;
+  if (v.videoUrl?.includes('commondatastorage.googleapis.com') || v.videoUrl?.includes('gtv-videos-bucket')) return false;
   return !removedIds.has(v.id);
 }
 
@@ -809,7 +581,7 @@ export async function publishVideo(payload: {
     ...payload,
     title: payload.title.trim(),
     description: (payload.description || `Educational video lecture: ${payload.title}`).trim(),
-    videoUrl: payload.videoUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+    videoUrl: (payload.videoUrl || '').trim(),
     thumbnailUrl: payload.thumbnailUrl || payload.previewUrl || 'https://images.unsplash.com/photo-1516426122078-c23e76319801?w=800',
     previewUrl: payload.previewUrl || payload.thumbnailUrl,
     duration: payload.duration || '15:00',
