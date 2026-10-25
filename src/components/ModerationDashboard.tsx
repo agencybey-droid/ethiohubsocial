@@ -24,6 +24,10 @@ import {
   Check,
   Sparkles,
   Database,
+  Copy,
+  ExternalLink,
+  Info,
+  FolderSearch,
 } from 'lucide-react';
 import {
   publishVideo,
@@ -35,6 +39,7 @@ import {
   uploadVideoFileToSupabase,
   insertVideoToSupabase,
   UNIVERSAL_VIDEO_BUCKET,
+  SUPABASE_SETUP_SQL,
 } from '../lib/supabase.ts';
 
 interface ReportItem {
@@ -101,7 +106,35 @@ export const ModerationDashboard: React.FC<ModerationDashboardProps> = ({
   const isAmharic = language === 'am';
 
   // Navigation tab inside Admin Portal
-  const [activeTab, setActiveTab] = useState<'upload' | 'manage' | 'queue' | 'guidelines'>('upload');
+  const [activeTab, setActiveTab] = useState<'upload' | 'manage' | 'queue' | 'guidelines' | 'supabase'>('upload');
+
+  // Supabase Diagnostics & Settings state
+  const [customScanBucket, setCustomScanBucket] = useState('');
+  const [syncingSupabase, setSyncingSupabase] = useState(false);
+  const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
+  const [copiedSql, setCopiedSql] = useState(false);
+  const [supabaseDiag, setSupabaseDiag] = useState<{
+    connected?: boolean;
+    url?: string;
+    projectRef?: string;
+    bucketsFound?: string[];
+    filesInVideosBucket?: number;
+    error?: string;
+  } | null>(null);
+
+  const fetchSupabaseDiag = async () => {
+    try {
+      const res = await fetch('/api/supabase/status');
+      const data = await res.json();
+      setSupabaseDiag(data);
+    } catch (e: any) {
+      setSupabaseDiag({ connected: false, error: e.message });
+    }
+  };
+
+  useEffect(() => {
+    fetchSupabaseDiag();
+  }, []);
 
   // Reports state
   const [reports, setReports] = useState<ReportItem[]>([]);
@@ -531,6 +564,20 @@ export const ModerationDashboard: React.FC<ModerationDashboardProps> = ({
           >
             <BookOpen className="w-3.5 h-3.5" />
             <span>{isAmharic ? 'መመሪያዎች' : 'Guidelines'}</span>
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab('supabase');
+              fetchSupabaseDiag();
+            }}
+            className={`px-3.5 py-1.5 rounded-lg transition-all duration-150 active:scale-[0.98] cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+              activeTab === 'supabase'
+                ? 'bg-[#ff9000] text-black font-bold shadow-sm'
+                : 'text-neutral-400 hover:text-white'
+            }`}
+          >
+            <Database className="w-3.5 h-3.5" />
+            <span>Supabase Sync & Settings</span>
           </button>
         </div>
       </div>
@@ -1291,6 +1338,219 @@ export const ModerationDashboard: React.FC<ModerationDashboardProps> = ({
                 Discussions must remain constructive and respectful. Slander, targeted harassment, or discriminatory
                 remarks will result in immediate removal and moderation action.
               </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 5: SUPABASE SETUP & DIAGNOSTICS */}
+      {activeTab === 'supabase' && (
+        <div className="space-y-6">
+          {/* Status Header */}
+          <div className="p-6 bg-gradient-to-r from-neutral-900 via-[#18181f] to-neutral-900 rounded-2xl border border-neutral-800 shadow-xl space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 rounded-xl">
+                  <Database className="w-7 h-7" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-white flex items-center gap-2">
+                    <span>Supabase Backend Integration & Diagnostics</span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      LIVE
+                    </span>
+                  </h2>
+                  <p className="text-xs text-neutral-400 mt-0.5">
+                    Project Reference: <span className="font-mono text-white font-semibold">hyuutvivdhadmwzdhwwp</span> · Supabase URL:{' '}
+                    <span className="font-mono text-neutral-300">https://hyuutvivdhadmwzdhwwp.supabase.co</span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={syncingSupabase}
+                  onClick={async () => {
+                    setSyncingSupabase(true);
+                    setSyncFeedback(null);
+                    try {
+                      const res = await fetch('/api/supabase/sync', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ bucketName: customScanBucket.trim() || undefined }),
+                      });
+                      const data = await res.json();
+                      await fetchAdminVideos();
+                      await fetchSupabaseDiag();
+                      onVideoUploaded?.();
+                      setSyncFeedback(`Sync complete! Discovered and synchronized ${data.syncedCount || 0} new video item(s).`);
+                    } catch (e: any) {
+                      setSyncFeedback(`Sync error: ${e.message}`);
+                    } finally {
+                      setSyncingSupabase(false);
+                    }
+                  }}
+                  className="px-4 py-2 rounded-xl bg-[#ff9000] hover:bg-[#ffa31a] active:scale-95 text-black font-bold text-xs flex items-center gap-2 transition-all cursor-pointer shadow-md"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${syncingSupabase ? 'animate-spin' : ''}`} />
+                  <span>{syncingSupabase ? 'Scanning Supabase...' : 'Run Deep Sync Now'}</span>
+                </button>
+              </div>
+            </div>
+
+            {syncFeedback && (
+              <div className="p-3 rounded-lg bg-emerald-950/60 border border-emerald-800 text-emerald-300 text-xs flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>{syncFeedback}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Critical Supabase Settings Guide */}
+          <div className="p-6 bg-neutral-900/60 rounded-2xl border border-neutral-800 space-y-5 text-xs text-neutral-300 leading-relaxed">
+            <div className="space-y-1 border-b border-neutral-800 pb-3">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <Info className="w-4 h-4 text-[#ff9000]" />
+                <span>Why Some Supabase Videos Are Not Displaying (Checklist)</span>
+              </h3>
+              <p className="text-neutral-400">
+                If you stored videos directly in Supabase Dashboard and they do not appear on the website, check these 3 Supabase settings:
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Check 1 */}
+              <div className="p-4 bg-neutral-950 rounded-xl border border-neutral-800/80 space-y-2">
+                <div className="flex items-center gap-2 text-white font-bold text-xs">
+                  <span className="w-5 h-5 rounded-full bg-[#ff9000] text-black flex items-center justify-center text-[10px] font-black">
+                    1
+                  </span>
+                  <span>Bucket "Public" Toggle</span>
+                </div>
+                <p className="text-neutral-400 text-[11px] leading-normal">
+                  In Supabase, if a storage bucket is marked <span className="text-amber-400 font-medium">Private</span>, the public website cannot stream or list files.
+                </p>
+                <div className="p-2 bg-neutral-900 rounded border border-neutral-800 text-[10px] text-neutral-300 space-y-1">
+                  <p className="font-semibold text-emerald-400">How to Fix in Supabase:</p>
+                  <p>1. Open <span className="text-white font-mono">Storage → Buckets</span>.</p>
+                  <p>2. Click <span className="text-white font-mono">...</span> next to your bucket → <span className="text-white font-mono">Edit Bucket</span>.</p>
+                  <p>3. Toggle <span className="text-amber-400 font-bold">Public bucket: ON</span>.</p>
+                </div>
+              </div>
+
+              {/* Check 2 */}
+              <div className="p-4 bg-neutral-950 rounded-xl border border-neutral-800/80 space-y-2">
+                <div className="flex items-center gap-2 text-white font-bold text-xs">
+                  <span className="w-5 h-5 rounded-full bg-[#ff9000] text-black flex items-center justify-center text-[10px] font-black">
+                    2
+                  </span>
+                  <span>Storage RLS (Read Policy)</span>
+                </div>
+                <p className="text-neutral-400 text-[11px] leading-normal">
+                  If Row Level Security (RLS) is turned on for Storage, an RLS policy must permit <span className="text-amber-400 font-medium">SELECT</span> for public users.
+                </p>
+                <div className="p-2 bg-neutral-900 rounded border border-neutral-800 text-[10px] text-neutral-300 space-y-1">
+                  <p className="font-semibold text-emerald-400">How to Fix in Supabase:</p>
+                  <p>1. Open <span className="text-white font-mono">Storage → Policies</span>.</p>
+                  <p>2. Click <span className="text-white font-mono">New Policy</span> for your bucket.</p>
+                  <p>3. Allow operation <span className="text-white font-mono">SELECT</span> for role <span className="text-white font-mono">anon, authenticated</span> with <span className="text-white font-mono">USING (true)</span>.</p>
+                </div>
+              </div>
+
+              {/* Check 3 */}
+              <div className="p-4 bg-neutral-950 rounded-xl border border-neutral-800/80 space-y-2">
+                <div className="flex items-center gap-2 text-white font-bold text-xs">
+                  <span className="w-5 h-5 rounded-full bg-[#ff9000] text-black flex items-center justify-center text-[10px] font-black">
+                    3
+                  </span>
+                  <span>Bucket Name Matching</span>
+                </div>
+                <p className="text-neutral-400 text-[11px] leading-normal">
+                  Our system defaults to the <span className="text-white font-mono">videos</span> bucket. If you named your bucket differently (e.g., <span className="text-white font-mono">Videos</span> with a capital V, or <span className="text-white font-mono">media</span>), enter it below!
+                </p>
+                <div className="p-2 bg-neutral-900 rounded border border-neutral-800 text-[10px] text-neutral-300 space-y-1">
+                  <p className="font-semibold text-emerald-400">Project Reference:</p>
+                  <p className="font-mono text-white">hyuutvivdhadmwzdhwwp</p>
+                  <p className="text-neutral-500">Ensure your files are in this project.</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Custom Bucket Scanner Tool */}
+            <div className="p-4 bg-neutral-950 rounded-xl border border-neutral-800 space-y-3">
+              <h4 className="font-bold text-white text-xs flex items-center gap-2">
+                <FolderSearch className="w-4 h-4 text-[#ff9000]" />
+                <span>Scan a Specific Bucket Name or Subfolder</span>
+              </h4>
+              <p className="text-[11px] text-neutral-400">
+                Did you store your videos in a bucket other than "videos" (e.g. <span className="text-white font-mono">Videos</span>, <span className="text-white font-mono">my-videos</span>, <span className="text-white font-mono">media</span>, <span className="text-white font-mono">uploads</span>)? Enter it below and click scan:
+              </p>
+              <div className="flex flex-col sm:flex-row items-center gap-2.5 max-w-xl">
+                <input
+                  type="text"
+                  value={customScanBucket}
+                  onChange={(e) => setCustomScanBucket(e.target.value)}
+                  placeholder="e.g. Videos, media, my-videos"
+                  className="w-full sm:flex-1 bg-neutral-900 border border-neutral-800 rounded-lg p-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-[#ff9000]"
+                />
+                <button
+                  type="button"
+                  disabled={syncingSupabase || !customScanBucket.trim()}
+                  onClick={async () => {
+                    if (!customScanBucket.trim()) return;
+                    setSyncingSupabase(true);
+                    setSyncFeedback(null);
+                    try {
+                      const res = await fetch('/api/supabase/sync', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ bucketName: customScanBucket.trim() }),
+                      });
+                      const data = await res.json();
+                      await fetchAdminVideos();
+                      await fetchSupabaseDiag();
+                      onVideoUploaded?.();
+                      setSyncFeedback(`Bucket "${customScanBucket.trim()}" scan complete! Found ${data.syncedCount || 0} new item(s).`);
+                    } catch (e: any) {
+                      setSyncFeedback(`Error scanning bucket: ${e.message}`);
+                    } finally {
+                      setSyncingSupabase(false);
+                    }
+                  }}
+                  className="w-full sm:w-auto px-4 py-2.5 bg-neutral-800 hover:bg-neutral-700 active:scale-95 text-white font-bold rounded-lg text-xs cursor-pointer transition-all border border-neutral-700 whitespace-nowrap"
+                >
+                  Scan This Bucket
+                </button>
+              </div>
+            </div>
+
+            {/* 1-Click SQL Setup Script */}
+            <div className="p-4 bg-neutral-950 rounded-xl border border-neutral-800 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Database className="w-4 h-4 text-emerald-400" />
+                  <span className="font-bold text-white text-xs">Automated 1-Click Supabase SQL Script</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(SUPABASE_SETUP_SQL);
+                    setCopiedSql(true);
+                    setTimeout(() => setCopiedSql(false), 2500);
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-700/80 text-emerald-300 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all active:scale-95"
+                >
+                  {copiedSql ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-emerald-400" />}
+                  <span>{copiedSql ? 'Copied to Clipboard!' : 'Copy SQL Script'}</span>
+                </button>
+              </div>
+              <p className="text-[11px] text-neutral-400 leading-normal">
+                You can copy and run this script in your Supabase project's <span className="text-white font-semibold">SQL Editor</span>. It will automatically ensure your storage bucket is public, grant read and upload permissions, and configure database tables.
+              </p>
+              <pre className="p-3 bg-neutral-900/90 rounded-lg border border-neutral-800/80 text-[10px] text-neutral-300 font-mono overflow-x-auto max-h-44">
+                {SUPABASE_SETUP_SQL}
+              </pre>
             </div>
           </div>
         </div>

@@ -445,64 +445,83 @@ export async function fetchAllVideosFromSupabase(): Promise<SupabaseVideoItem[]>
     console.warn('Supabase videos table fetch bypassed:', err);
   }
 
-  // 2. Fetch directly from the single universal Supabase Storage bucket 'videos'
-  // Scan root directory and 'uploads/' subfolder so ALL uploaded files are discovered regardless of who uploaded it
+  // 2. Fetch directly from Supabase Storage buckets (recursive multi-bucket scan)
   try {
-    const foldersToScan = ['', 'uploads'];
-    for (const folder of foldersToScan) {
-      const { data: files, error: listError } = await client.storage
-        .from(UNIVERSAL_VIDEO_BUCKET)
-        .list(folder, {
-          limit: 100,
-          sortBy: { column: 'created_at', order: 'desc' },
-        });
+    const candidateBuckets = ['videos', 'Videos', 'video', 'Video', 'uploads', 'media', 'Media', 'shorts', 'Shorts'];
+    const videoExtRegex = /\.(mp4|webm|mov|m4v|mkv|avi|flv|wmv|ts|3gp)$/i;
 
-      if (!listError && Array.isArray(files)) {
-        for (const file of files) {
-          // Skip empty or hidden directories
-          if (!file.name || file.name.startsWith('.') || file.id === null) continue;
+    for (const bucketName of candidateBuckets) {
+      const scannedFolders = new Set<string>();
+      const folderQueue = [''];
 
-          const fullPath = folder ? `${folder}/${file.name}` : file.name;
-          if (registeredPaths.has(fullPath) || registeredPaths.has(file.name)) continue;
+      while (folderQueue.length > 0 && scannedFolders.size < 20) {
+        const currentFolder = folderQueue.shift()!;
+        if (scannedFolders.has(currentFolder)) continue;
+        scannedFolders.add(currentFolder);
 
-          // Check if video file extension
-          const isVideo = /\.(mp4|webm|mov|m4v|mkv)$/i.test(file.name);
-          if (!isVideo && !file.metadata?.mimetype?.includes('video')) continue;
-
-          registeredPaths.add(fullPath);
-          const { data: urlData } = client.storage
-            .from(UNIVERSAL_VIDEO_BUCKET)
-            .getPublicUrl(fullPath);
-
-          const isShortVideo = /short|reel|vertical|tiktok/i.test(file.name);
-          const id = hashStringToId(`supabase_${fullPath}`);
-
-          videosFound.push({
-            id,
-            title: titleFromPath(file.name),
-            description: `Universal Supabase video asset: ${titleFromPath(file.name)}. Stored in platform public bucket '${UNIVERSAL_VIDEO_BUCKET}'.`,
-            videoUrl: urlData.publicUrl,
-            thumbnailUrl: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&auto=format&fit=crop&q=80',
-            previewUrl: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&auto=format&fit=crop&q=80',
-            duration: isShortVideo ? '0:45' : '10:00',
-            durationSec: isShortVideo ? 45 : 600,
-            category: 'Technology',
-            educatorId: 'student-demo-uid',
-            educatorName: 'Alex Rivers (Student)',
-            educatorAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-            views: 0,
-            likes: 0,
-            dislikes: 0,
-            accessLevel: 'public',
-            isShort: isShortVideo,
-            isApproved: true,
-            isRemoved: false,
-            isSupabaseStored: true,
-            supabasePath: fullPath,
-            supabaseBucket: UNIVERSAL_VIDEO_BUCKET,
-            supabaseUrl: urlData.publicUrl,
-            createdAt: file.created_at || new Date().toISOString(),
+        const { data: files, error: listError } = await client.storage
+          .from(bucketName)
+          .list(currentFolder, {
+            limit: 100,
+            sortBy: { column: 'created_at', order: 'desc' },
           });
+
+        if (!listError && Array.isArray(files)) {
+          for (const file of files) {
+            if (!file.name || file.name.startsWith('.')) continue;
+
+            const fullPath = currentFolder ? `${currentFolder}/${file.name}` : file.name;
+
+            // Check if folder
+            const isFolder = file.id === null || file.metadata === null || (!file.name.includes('.') && !file.metadata?.mimetype);
+            if (isFolder) {
+              if (!scannedFolders.has(fullPath) && !folderQueue.includes(fullPath)) {
+                folderQueue.push(fullPath);
+              }
+              continue;
+            }
+
+            if (registeredPaths.has(fullPath) || registeredPaths.has(file.name)) continue;
+
+            // Check if video file extension
+            const isVideo = videoExtRegex.test(file.name) || file.metadata?.mimetype?.includes('video');
+            if (!isVideo) continue;
+
+            registeredPaths.add(fullPath);
+            const { data: urlData } = client.storage
+              .from(bucketName)
+              .getPublicUrl(fullPath);
+
+            const isShortVideo = /short|reel|vertical|tiktok/i.test(file.name) || (file.metadata?.size && file.metadata.size < 8 * 1024 * 1024 && /portrait|short/i.test(fullPath));
+            const id = hashStringToId(`supabase_${bucketName}_${fullPath}`);
+
+            videosFound.push({
+              id,
+              title: titleFromPath(file.name),
+              description: `Universal Supabase video asset: ${titleFromPath(file.name)}. Stored in Supabase bucket '${bucketName}'.`,
+              videoUrl: urlData.publicUrl,
+              thumbnailUrl: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&auto=format&fit=crop&q=80',
+              previewUrl: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&auto=format&fit=crop&q=80',
+              duration: isShortVideo ? '0:45' : '10:00',
+              durationSec: isShortVideo ? 45 : 600,
+              category: 'Technology',
+              educatorId: 'student-demo-uid',
+              educatorName: 'Alex Rivers (Student)',
+              educatorAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+              views: 0,
+              likes: 0,
+              dislikes: 0,
+              accessLevel: 'public',
+              isShort: !!isShortVideo,
+              isApproved: true,
+              isRemoved: false,
+              isSupabaseStored: true,
+              supabasePath: fullPath,
+              supabaseBucket: bucketName,
+              supabaseUrl: urlData.publicUrl,
+              createdAt: file.created_at || new Date().toISOString(),
+            });
+          }
         }
       }
     }
