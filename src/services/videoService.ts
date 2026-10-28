@@ -290,13 +290,9 @@ export async function syncLocalVideosToServer(): Promise<void> {
 
     const itemsToSync = [];
     for (const v of normalizedLocal) {
-      let videoData: string | undefined;
-      try {
-        const blob = await getVideoBlob(v.id);
-        if (blob) {
-          videoData = await blobToBase64(blob);
-        }
-      } catch {}
+      if (!v || !v.title) continue;
+      // Never send blob: URLs over JSON body
+      if (v.videoUrl?.startsWith('blob:')) continue;
 
       itemsToSync.push({
         id: v.id,
@@ -315,12 +311,11 @@ export async function syncLocalVideosToServer(): Promise<void> {
         isShort: !!v.isShort,
         isPeerReviewed: !!v.isPeerReviewed,
         isApproved: true,
-        videoData,
       });
     }
 
     if (itemsToSync.length > 0) {
-      await fetch('/api/videos/sync-local', {
+      await safeFetchJson('/api/videos/sync-local', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ videos: itemsToSync }),
@@ -359,8 +354,6 @@ export async function getCatalogVideos(params: {
   sort?: string;
 }): Promise<VideoRecord[]> {
   syncLocalVideosToServer().catch(() => {});
-  // Trigger server-side Supabase sync in the background
-  fetch('/api/supabase/sync', { method: 'POST' }).catch(() => {});
 
   const removedIds = getRemovedVideoIds();
   const query = new URLSearchParams();
@@ -455,7 +448,6 @@ export async function getCatalogVideos(params: {
  */
 export async function getShortsCatalog(): Promise<VideoRecord[]> {
   syncLocalVideosToServer().catch(() => {});
-  fetch('/api/supabase/sync', { method: 'POST' }).catch(() => {});
 
   const removedIds = getRemovedVideoIds();
   const localShorts = getLocalVideos().filter((v) => v.isShort && shouldKeepVideo(v, removedIds));
@@ -502,7 +494,6 @@ export async function getShortsCatalog(): Promise<VideoRecord[]> {
  */
 export async function getAdminVideosCatalog(): Promise<VideoRecord[]> {
   syncLocalVideosToServer().catch(() => {});
-  fetch('/api/supabase/sync', { method: 'POST' }).catch(() => {});
 
   const removedIds = getRemovedVideoIds();
   const localVideos = getLocalVideos().filter((v) => shouldKeepVideo(v, removedIds));

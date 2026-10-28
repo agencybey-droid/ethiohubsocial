@@ -34,6 +34,7 @@ import {
   getAdminVideosCatalog,
   removeVideoItem,
   clearAllPlaceholders,
+  safeFetchJson,
 } from '../services/videoService.ts';
 import {
   uploadVideoFileToSupabase,
@@ -1015,7 +1016,7 @@ export const ModerationDashboard: React.FC<ModerationDashboardProps> = ({
                 onClick={async () => {
                   setLoadingVideos(true);
                   try {
-                    await fetch('/api/supabase/sync', { method: 'POST' });
+                    await safeFetchJson('/api/supabase/sync', { method: 'POST' });
                     await fetchAdminVideos();
                     onVideoUploaded?.();
                   } catch (e) {
@@ -1375,16 +1376,19 @@ export const ModerationDashboard: React.FC<ModerationDashboardProps> = ({
                     setSyncingSupabase(true);
                     setSyncFeedback(null);
                     try {
-                      const res = await fetch('/api/supabase/sync', {
+                      const res = await safeFetchJson<{ success: boolean; syncedCount?: number; error?: string }>('/api/supabase/sync', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ bucketName: customScanBucket.trim() || undefined }),
                       });
-                      const data = await res.json();
-                      await fetchAdminVideos();
-                      await fetchSupabaseDiag();
-                      onVideoUploaded?.();
-                      setSyncFeedback(`Sync complete! Discovered and synchronized ${data.syncedCount || 0} new video item(s).`);
+                      if (res.ok && res.data) {
+                        await fetchAdminVideos();
+                        await fetchSupabaseDiag();
+                        onVideoUploaded?.();
+                        setSyncFeedback(`Sync complete! Discovered and synchronized ${res.data.syncedCount || 0} new video item(s).`);
+                      } else {
+                        setSyncFeedback(`Sync note: ${res.error || 'Server is busy, please try again shortly.'}`);
+                      }
                     } catch (e: any) {
                       setSyncFeedback(`Sync error: ${e.message}`);
                     } finally {
@@ -1502,16 +1506,19 @@ export const ModerationDashboard: React.FC<ModerationDashboardProps> = ({
                     setSyncingSupabase(true);
                     setSyncFeedback(null);
                     try {
-                      const res = await fetch('/api/supabase/sync', {
+                      const res = await safeFetchJson<{ success: boolean; syncedCount?: number; error?: string }>('/api/supabase/sync', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ bucketName: customScanBucket.trim() }),
                       });
-                      const data = await res.json();
-                      await fetchAdminVideos();
-                      await fetchSupabaseDiag();
-                      onVideoUploaded?.();
-                      setSyncFeedback(`Bucket "${customScanBucket.trim()}" scan complete! Found ${data.syncedCount || 0} new item(s).`);
+                      if (res.ok && res.data) {
+                        await fetchAdminVideos();
+                        await fetchSupabaseDiag();
+                        onVideoUploaded?.();
+                        setSyncFeedback(`Bucket "${customScanBucket.trim()}" scan complete! Found ${res.data.syncedCount || 0} new item(s).`);
+                      } else {
+                        setSyncFeedback(`Bucket scan note: ${res.error || 'Check bucket name or permissions.'}`);
+                      }
                     } catch (e: any) {
                       setSyncFeedback(`Error scanning bucket: ${e.message}`);
                     } finally {
