@@ -201,14 +201,14 @@ export async function uploadVideoFileToSupabase(
   mimeType: string;
 }> {
   const client = getSupabaseClient();
-  const ext = file.name.split('.').pop() || 'mp4';
-  const cleanBaseName = file.name
-    .replace(/\.[^/.]+$/, '')
-    .replace(/[^a-zA-Z0-9_-]/g, '_')
-    .substring(0, 30);
-  const fileName = `${Date.now()}_${cleanBaseName}.${ext}`;
+  const rawExt = file.name.split('.').pop() || 'mp4';
+  const cleanExt = rawExt.toLowerCase().replace(/[^a-z0-9]/g, '') || 'mp4';
+  const rawBase = file.name.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_');
+  const cleanBaseName = rawBase.replace(/^_+|_+$/g, '').substring(0, 30) || 'video';
+  const fileName = `${Date.now()}_${cleanBaseName}.${cleanExt}`;
   const filePath = `uploads/${fileName}`;
 
+  let lastClientError = '';
   if (onProgress) onProgress(20);
 
   // 1. First attempt: Direct client upload to Supabase storage
@@ -234,44 +234,49 @@ export async function uploadVideoFileToSupabase(
         };
       }
     } else if (error) {
-      console.warn('Direct client Supabase upload rejected, delegating to server Supabase uploader:', error.message);
+      lastClientError = error.message;
+      console.warn('Direct client Supabase upload note:', error.message);
     }
   } catch (err: any) {
-    console.warn('Direct client Supabase upload exception, delegating to server Supabase uploader:', err?.message || err);
+    lastClientError = err?.message || 'Network exception';
+    console.warn('Direct client Supabase upload exception:', err?.message || err);
   }
 
-  // 2. Second attempt: Server-side Supabase storage uploader
-  // The server has verified unhindered network access to Supabase Storage and uploads the buffer directly
-  if (onProgress) onProgress(50);
-  try {
-    const formData = new FormData();
-    formData.append('video', file);
-    formData.append('title', cleanBaseName);
+  // 2. Second attempt: Server-side Supabase storage uploader (only if not on Vercel or if file is < 4MB)
+  // Vercel Serverless Functions enforce a 4.5MB request limit resulting in 413 Payload Too Large
+  const isVercel = typeof window !== 'undefined' && window.location.hostname.includes('vercel.app');
+  if (!isVercel || file.size < 4 * 1024 * 1024) {
+    if (onProgress) onProgress(50);
+    try {
+      const formData = new FormData();
+      formData.append('video', file);
+      formData.append('title', cleanBaseName);
 
-    const res = await fetch('/api/videos/upload-file', {
-      method: 'POST',
-      body: formData,
-    });
+      const res = await fetch('/api/videos/upload-file', {
+        method: 'POST',
+        body: formData,
+      });
 
-    if (res.ok) {
-      const serverVideo = await res.json();
-      if (serverVideo && serverVideo.videoUrl && !serverVideo.videoUrl.startsWith('blob:')) {
-        if (onProgress) onProgress(100);
-        return {
-          publicUrl: serverVideo.supabaseUrl || serverVideo.videoUrl,
-          path: serverVideo.supabasePath || filePath,
-          bucket: bucketName,
-          fileSize: file.size,
-          mimeType: file.type || 'video/mp4',
-        };
+      if (res.ok) {
+        const serverVideo = await res.json();
+        if (serverVideo && serverVideo.videoUrl && !serverVideo.videoUrl.startsWith('blob:')) {
+          if (onProgress) onProgress(100);
+          return {
+            publicUrl: serverVideo.supabaseUrl || serverVideo.videoUrl,
+            path: serverVideo.supabasePath || filePath,
+            bucket: bucketName,
+            fileSize: file.size,
+            mimeType: file.type || 'video/mp4',
+          };
+        }
       }
+    } catch (serverErr: any) {
+      console.error('Server-side Supabase upload route exception:', serverErr);
     }
-  } catch (serverErr: any) {
-    console.error('Server-side Supabase upload route exception:', serverErr);
   }
 
   // If both direct client and server upload failed, do NOT return a temporary blob URL!
-  throw new Error('Failed to upload video to Supabase Storage. Please check Supabase storage bucket permissions.');
+  throw new Error(`Failed to upload video to Supabase Storage (${lastClientError || 'Storage rejection'}). Please check bucket permissions or network.`);
 }
 
 /**

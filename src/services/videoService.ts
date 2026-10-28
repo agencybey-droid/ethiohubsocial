@@ -587,9 +587,12 @@ export async function publishVideo(payload: {
     isApproved: payload.isApproved !== undefined ? payload.isApproved : true,
   };
 
-  // 1. If an actual video file is provided, upload directly via multipart FormData
-  // to ensure universal availability across ALL browsers and mobile devices!
-  if (payload.videoFile) {
+  const isAlreadyHosted = Boolean(cleanPayload.videoUrl && cleanPayload.videoUrl.startsWith('http'));
+  const isVercel = typeof window !== 'undefined' && window.location.hostname.includes('vercel.app');
+
+  // 1. Only attempt multipart upload to server if NOT already hosted on Supabase
+  // and NOT running on Vercel Serverless (which enforces a 4.5MB 413 Payload Too Large limit)
+  if (payload.videoFile && !isAlreadyHosted && !isVercel) {
     try {
       const formData = new FormData();
       formData.append('video', payload.videoFile);
@@ -625,7 +628,7 @@ export async function publishVideo(payload: {
         }
       }
     } catch (err) {
-      console.warn('Direct server multipart upload failed, attempting JSON fallback:', err);
+      console.warn('Server multipart upload note:', err);
     }
   }
 
