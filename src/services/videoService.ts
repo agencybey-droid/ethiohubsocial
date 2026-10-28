@@ -209,6 +209,8 @@ export function getLocalVideos(): VideoRecord[] {
       if (!v || v.id <= 12) return false;
       if (v.videoUrl?.includes('commondatastorage.googleapis.com')) return false;
       if (v.videoUrl?.includes('gtv-videos-bucket')) return false;
+      // Filter out any temporary local blob URLs to ensure universal cross-device visibility
+      if (v.videoUrl?.startsWith('blob:')) return false;
       return true;
     });
   } catch {

@@ -39,8 +39,6 @@ const CATEGORIES = [
   'Culture',
 ];
 
-const PRESET_SAMPLE_VIDEOS: { name: string; videoUrl: string; thumbnailUrl: string; duration: string; durationSec: number }[] = [];
-
 export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuccess }) => {
   const { user } = useAuth();
   const { triggerRealtimeNotification } = useNotifications();
@@ -51,7 +49,6 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [accessLevel, setAccessLevel] = useState<'public' | 'institutional' | 'sensitive_academic'>('public');
   const [isPeerReviewed, setIsPeerReviewed] = useState(true);
-  const [selectedPreset, setSelectedPreset] = useState(0);
 
   // Upload file state
   const [selectedVideoFile, setSelectedVideoFile] = useState<File | null>(null);
@@ -105,6 +102,11 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
       return;
     }
 
+    if (!selectedVideoFile) {
+      setError('Please select a video file (.mp4, .webm) from your device to upload.');
+      return;
+    }
+
     if (enableEncryption && !encryptionResult) {
       setError('Please run client-side media encryption before publishing.');
       return;
@@ -113,34 +115,28 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
     setUploading(true);
     setError(null);
 
-    const preset = PRESET_SAMPLE_VIDEOS[selectedPreset];
-    let finalVideoUrl = preset.videoUrl;
-    let finalThumbnailUrl = preset.thumbnailUrl;
-    let supabasePath = `uploads/preset_${Date.now()}.mp4`;
-    let duration = preset.duration;
-    let durationSec = preset.durationSec;
-    let fileSize = 24500000;
-    let mimeType = 'video/mp4';
+    let finalVideoUrl = '';
+    let finalThumbnailUrl = 'https://images.unsplash.com/photo-1516426122078-c23e76319801?w=800';
+    let supabasePath = `uploads/${Date.now()}_video.mp4`;
+    let duration = '12:00';
+    let durationSec = 720;
+    let fileSize = selectedVideoFile.size;
+    let mimeType = selectedVideoFile.type || 'video/mp4';
 
     try {
-      // If user uploaded a physical video file from their computer
-      if (selectedVideoFile) {
-        setUploadStatusText('Uploading video media...');
-        const uploadResult = await uploadVideoFileToSupabase(
-          selectedVideoFile,
-          'videos',
-          (percent) => {
-            setUploadProgress(percent);
-          }
-        );
+      setUploadStatusText('Uploading video to Supabase Storage...');
+      const uploadResult = await uploadVideoFileToSupabase(
+        selectedVideoFile,
+        'videos',
+        (percent) => {
+          setUploadProgress(percent);
+        }
+      );
 
-        finalVideoUrl = uploadResult.publicUrl;
-        supabasePath = uploadResult.path;
-        fileSize = uploadResult.fileSize;
-        mimeType = uploadResult.mimeType;
-        duration = '12:00';
-        durationSec = 720;
-      }
+      finalVideoUrl = uploadResult.publicUrl;
+      supabasePath = uploadResult.path;
+      fileSize = uploadResult.fileSize;
+      mimeType = uploadResult.mimeType;
 
       const result = await publishVideo({
         title: title.trim(),
@@ -256,38 +252,16 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
                   className="px-3.5 py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg font-medium flex items-center gap-2 transition-colors cursor-pointer"
                 >
                   <FileVideo className="w-4 h-4 text-emerald-400" />
-                  {selectedVideoFile ? 'Change File' : 'Choose Local Video (.mp4)'}
+                  {selectedVideoFile ? 'Change File' : 'Choose Video File (.mp4, .webm)'}
                 </button>
                 {selectedVideoFile ? (
                   <div className="truncate text-emerald-400 font-mono text-[11px] flex-1">
                     {selectedVideoFile.name} ({(selectedVideoFile.size / (1024 * 1024)).toFixed(1)} MB)
                   </div>
                 ) : (
-                  <span className="text-neutral-500 text-[11px]">Or select a preset stream below</span>
+                  <span className="text-neutral-500 text-[11px]">Select a lecture or demonstration video from your device</span>
                 )}
               </div>
-
-              {!selectedVideoFile && (
-                <div className="grid grid-cols-1 gap-2 pt-1">
-                  {PRESET_SAMPLE_VIDEOS.map((preset, idx) => (
-                    <div
-                      key={idx}
-                      onClick={() => setSelectedPreset(idx)}
-                      className={`p-2 rounded-lg border flex items-center justify-between cursor-pointer transition-colors ${
-                        selectedPreset === idx
-                          ? 'bg-emerald-500/10 border-emerald-500/50 text-white'
-                          : 'bg-neutral-900 border-neutral-800/80 text-neutral-400 hover:border-neutral-700'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 truncate">
-                        <img src={preset.thumbnailUrl} alt="" className="w-8 h-5 object-cover rounded shrink-0" />
-                        <span className="truncate text-xs">{preset.name}</span>
-                      </div>
-                      <span className="text-[10px] font-mono shrink-0 ml-2 text-neutral-400">{preset.duration}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
 

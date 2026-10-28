@@ -392,9 +392,11 @@ export const ModerationDashboard: React.FC<ModerationDashboardProps> = ({
               supabase_bucket: UNIVERSAL_VIDEO_BUCKET,
             });
           } catch {}
-        } catch (e) {
-          console.warn('Supabase upload exception:', e);
-          finalVideoUrl = URL.createObjectURL(selectedFile);
+        } catch (e: any) {
+          console.error('Supabase upload exception:', e);
+          setUploadErrorMessage(e?.message || 'Failed to upload video to Supabase Storage. Please verify connection.');
+          setUploading(false);
+          return;
         }
       } else if (videoSourceType === 'url' && customVideoUrl.trim()) {
         finalVideoUrl = customVideoUrl.trim();

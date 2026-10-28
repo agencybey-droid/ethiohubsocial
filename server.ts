@@ -69,6 +69,33 @@ const uploadMiddleware = multer({
   limits: { fileSize: 250 * 1024 * 1024 }, // 250MB
 });
 
+function resolveValidSupabaseUrl(rawUrl?: string, rawKey?: string): string {
+  if (rawUrl && (rawUrl.startsWith('http://') || rawUrl.startsWith('https://'))) {
+    return rawUrl.trim().replace(/\/+$/, '');
+  }
+  if (rawKey && rawKey.includes('.')) {
+    try {
+      const parts = rawKey.split('.');
+      if (parts.length >= 2) {
+        let base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+        while (base64.length % 4) base64 += '=';
+        const decoded = Buffer.from(base64, 'base64').toString('utf8');
+        const payload = JSON.parse(decoded);
+        if (payload?.ref) return `https://${payload.ref}.supabase.co`;
+      }
+    } catch {}
+  }
+  return 'https://hyuutvivdhadmwzdhwwp.supabase.co';
+}
+
+// Configure Supabase server client for single shared 'videos' bucket library
+const SUPABASE_RAW_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh5dXV0dml2ZGhhZG13emRod3dwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1Nzc2MDEsImV4cCI6MjEwODE1MzYwMX0.iqzz3f0wNRJyYQBDdagqyMLagq5TzlXjyECdaWu1Bj0';
+const SUPABASE_URL = resolveValidSupabaseUrl(process.env.VITE_SUPABASE_URL, SUPABASE_RAW_KEY);
+const SUPABASE_ANON_KEY = SUPABASE_RAW_KEY;
+const supabaseServerClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { persistSession: false },
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', service: 'EduHub API', timestamp: new Date().toISOString() });
@@ -242,6 +269,9 @@ app.post('/api/videos/upload', async (req, res) => {
 
     const cleanDescription = (description || `Educational video: ${cleanTitle}`).trim();
     const cleanVideoUrl = (videoUrl || '').trim();
+    if (cleanVideoUrl.startsWith('blob:')) {
+      return res.status(400).json({ error: 'Cannot publish a temporary local blob URL. Please upload the physical video file.' });
+    }
     if (!cleanVideoUrl && !req.body.videoData) {
       return res.status(400).json({ error: 'Valid video URL or video file is required' });
     }
@@ -307,7 +337,7 @@ app.post('/api/videos/upload', async (req, res) => {
   }
 });
 
-// Multipart file upload endpoint (universal storage across all browsers and phones)
+// Multipart file upload endpoint (universal storage across all browsers and phones directly into Supabase Storage)
 app.post('/api/videos/upload-file', uploadMiddleware.fields([
   { name: 'video', maxCount: 1 },
   { name: 'thumbnail', maxCount: 1 },
@@ -342,18 +372,39 @@ app.post('/api/videos/upload-file', uploadMiddleware.fields([
     let fileSize = videoFile ? videoFile.size : 0;
     let videoData: string | null = null;
 
-    if (videoFile && fileSize <= 50 * 1024 * 1024) {
+    let fileBuf: Buffer | null = null;
+    if (videoFile) {
       try {
-        const fileBuf = fs.readFileSync(videoFile.path);
-        videoData = fileBuf.toString('base64');
+        fileBuf = fs.readFileSync(videoFile.path);
+        if (fileSize <= 50 * 1024 * 1024) {
+          videoData = fileBuf.toString('base64');
+        }
       } catch (e) {
-        console.warn('Failed to read video buffer into base64:', e);
+        console.warn('Failed to read video file buffer:', e);
       }
     }
 
     let thumbnailUrl = req.body.thumbnailUrl || '';
     if (thumbFile) {
       thumbnailUrl = `/uploads/thumbnails/${thumbFile.filename}`;
+      // Also upload thumbnail to Supabase Storage
+      try {
+        const thumbBuf = fs.readFileSync(thumbFile.path);
+        const thumbExt = path.extname(thumbFile.originalname) || '.jpg';
+        const thumbSupabasePath = `thumbnails/${Date.now()}_${cleanTitle.replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 30)}${thumbExt}`;
+        const { data: tData, error: tErr } = await supabaseServerClient.storage
+          .from('videos')
+          .upload(thumbSupabasePath, thumbBuf, {
+            contentType: thumbFile.mimetype || 'image/jpeg',
+            upsert: true,
+          });
+        if (!tErr && tData?.path) {
+          const { data: tUrlData } = supabaseServerClient.storage.from('videos').getPublicUrl(tData.path);
+          if (tUrlData?.publicUrl) thumbnailUrl = tUrlData.publicUrl;
+        }
+      } catch (tErr) {
+        console.warn('Thumb upload to Supabase storage note:', tErr);
+      }
     } else if (req.body.thumbnailData && req.body.thumbnailData.startsWith('data:image/')) {
       try {
         const thumbFilename = `thumb-${Date.now()}-${Math.random().toString(36).substring(2, 8)}.jpg`;
@@ -374,17 +425,76 @@ app.post('/api/videos/upload-file', uploadMiddleware.fields([
     const cleanDurationSec = durationSec ? parseInt(durationSec, 10) : 600;
     const isShortBool = isShort === 'true' || isShort === true || (cleanDurationSec <= 60);
 
-    const videoUrl = videoFile 
-      ? `/uploads/videos/${videoFile.filename}` 
-      : ((req.body.videoUrl || '').trim());
-    if (!videoUrl) {
-      return res.status(400).json({ error: 'Video file or videoUrl is required' });
+    // Upload physical file directly to Supabase Storage bucket 'videos'
+    let finalVideoUrl = videoFile ? `/uploads/videos/${videoFile.filename}` : ((req.body.videoUrl || '').trim());
+    let supabaseSaved = false;
+    let supabaseFilePath: string | null = null;
+    let supabasePublicUrl: string | null = null;
+
+    if (videoFile && fileBuf) {
+      try {
+        const ext = path.extname(videoFile.originalname) || '.mp4';
+        const cleanName = path.basename(videoFile.originalname, ext).replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 30);
+        supabaseFilePath = `uploads/${Date.now()}_${cleanName}${ext}`;
+
+        const { data: uploadData, error: uploadErr } = await supabaseServerClient.storage
+          .from('videos')
+          .upload(supabaseFilePath, fileBuf, {
+            contentType: mimeType,
+            upsert: true,
+          });
+
+        if (uploadErr) {
+          console.warn('Supabase server storage upload error:', uploadErr.message);
+        } else if (uploadData?.path) {
+          const { data: urlData } = supabaseServerClient.storage
+            .from('videos')
+            .getPublicUrl(uploadData.path);
+          if (urlData?.publicUrl) {
+            finalVideoUrl = urlData.publicUrl;
+            supabasePublicUrl = urlData.publicUrl;
+            supabaseSaved = true;
+            console.log('Video stored successfully in Supabase Storage:', supabasePublicUrl);
+          }
+        }
+      } catch (supErr: any) {
+        console.warn('Supabase storage upload attempt note:', supErr.message);
+      }
+    }
+
+    if (!finalVideoUrl || finalVideoUrl.startsWith('blob:')) {
+      return res.status(400).json({ error: 'Video file or permanent videoUrl is required' });
+    }
+
+    // Insert into Supabase database table 'videos' for instant real-time synchronization
+    if (supabaseSaved && supabasePublicUrl) {
+      try {
+        await supabaseServerClient.from('videos').insert({
+          title: cleanTitle,
+          description: cleanDesc,
+          video_url: supabasePublicUrl,
+          thumbnail_url: thumbnailUrl,
+          duration: duration || '10:00',
+          duration_sec: cleanDurationSec,
+          category: category || 'Science & Technology',
+          tags: typeof tags === 'string' ? tags : JSON.stringify(tags || []),
+          educator_id: 'student-demo-uid',
+          educator_name: 'Alex Rivers (Student)',
+          is_short: isShortBool,
+          is_approved: true,
+          is_supabase_stored: true,
+          supabase_path: supabaseFilePath,
+          supabase_bucket: 'videos',
+        });
+      } catch (dbErr: any) {
+        console.warn('Supabase DB table insertion note:', dbErr.message);
+      }
     }
 
     const video = await createVideo({
       title: cleanTitle,
       description: cleanDesc,
-      videoUrl,
+      videoUrl: finalVideoUrl,
       thumbnailUrl,
       previewUrl: thumbnailUrl,
       duration: duration || '10:00',
@@ -399,22 +509,20 @@ app.post('/api/videos/upload-file', uploadMiddleware.fields([
       isPeerReviewed: isPeerReviewed === 'true' || isPeerReviewed === true,
       isShort: isShortBool,
       isApproved: autoApprove !== 'false' && autoApprove !== false,
+      isSupabaseStored: supabaseSaved,
+      supabasePath: (supabaseSaved && supabaseFilePath) ? supabaseFilePath : undefined,
+      supabaseBucket: 'videos',
+      supabaseUrl: supabasePublicUrl || undefined,
       videoData: videoData || undefined,
       mimeType,
       fileSize,
     });
 
     if (videoFile) {
-      const universalStreamUrl = `/api/media/stream/${video.id}`;
       const standardPath = path.join(uploadsVideosDir, `video-${video.id}.mp4`);
       try {
         fs.copyFileSync(videoFile.path, standardPath);
       } catch {}
-
-      await updateVideo(video.id, {
-        videoUrl: universalStreamUrl,
-      });
-      video.videoUrl = universalStreamUrl;
     }
 
     res.status(201).json(video);
@@ -562,32 +670,7 @@ app.post('/api/videos/sync-local', async (req, res) => {
   }
 });
 
-function resolveValidSupabaseUrl(rawUrl?: string, rawKey?: string): string {
-  if (rawUrl && (rawUrl.startsWith('http://') || rawUrl.startsWith('https://'))) {
-    return rawUrl.trim().replace(/\/+$/, '');
-  }
-  if (rawKey && rawKey.includes('.')) {
-    try {
-      const parts = rawKey.split('.');
-      if (parts.length >= 2) {
-        let base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-        while (base64.length % 4) base64 += '=';
-        const decoded = Buffer.from(base64, 'base64').toString('utf8');
-        const payload = JSON.parse(decoded);
-        if (payload?.ref) return `https://${payload.ref}.supabase.co`;
-      }
-    } catch {}
-  }
-  return 'https://hyuutvivdhadmwzdhwwp.supabase.co';
-}
 
-// Configure Supabase server client for single shared 'videos' bucket library
-const SUPABASE_RAW_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh5dXV0dml2ZGhhZG13emRod3dwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1Nzc2MDEsImV4cCI6MjEwODE1MzYwMX0.iqzz3f0wNRJyYQBDdagqyMLagq5TzlXjyECdaWu1Bj0';
-const SUPABASE_URL = resolveValidSupabaseUrl(process.env.VITE_SUPABASE_URL, SUPABASE_RAW_KEY);
-const SUPABASE_ANON_KEY = SUPABASE_RAW_KEY;
-const supabaseServerClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: { persistSession: false },
-});
 
 // In-memory mutex and cooldown to prevent server overload and Cloud SQL connection exhaustion
 let activeSyncPromise: Promise<{ syncedCount: number; synced: any[] }> | null = null;

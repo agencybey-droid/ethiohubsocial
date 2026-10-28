@@ -211,8 +211,8 @@ export async function uploadVideoFileToSupabase(
 
   if (onProgress) onProgress(20);
 
+  // 1. First attempt: Direct client upload to Supabase storage
   try {
-    // Upload file directly to Supabase storage
     const { data, error } = await client.storage
       .from(bucketName)
       .upload(filePath, file, {
@@ -220,46 +220,58 @@ export async function uploadVideoFileToSupabase(
         upsert: true,
       });
 
-    if (onProgress) onProgress(80);
-
-    if (error) {
-      console.warn('Supabase storage upload error:', error.message);
-      // Fallback: If remote bucket rejects or is unauthorized, create a clean object URL or proxy
-      const fallbackUrl = URL.createObjectURL(file);
-      if (onProgress) onProgress(100);
-      return {
-        publicUrl: fallbackUrl,
-        path: filePath,
-        bucket: bucketName,
-        fileSize: file.size,
-        mimeType: file.type || 'video/mp4',
-      };
+    if (!error && data?.path) {
+      if (onProgress) onProgress(90);
+      const { data: urlData } = client.storage.from(bucketName).getPublicUrl(data.path);
+      if (urlData?.publicUrl) {
+        if (onProgress) onProgress(100);
+        return {
+          publicUrl: urlData.publicUrl,
+          path: data.path,
+          bucket: bucketName,
+          fileSize: file.size,
+          mimeType: file.type || 'video/mp4',
+        };
+      }
+    } else if (error) {
+      console.warn('Direct client Supabase upload rejected, delegating to server Supabase uploader:', error.message);
     }
-
-    // Get public URL directly from Supabase Storage
-    const { data: urlData } = client.storage.from(bucketName).getPublicUrl(data.path);
-
-    if (onProgress) onProgress(100);
-
-    return {
-      publicUrl: urlData.publicUrl,
-      path: data.path,
-      bucket: bucketName,
-      fileSize: file.size,
-      mimeType: file.type || 'video/mp4',
-    };
   } catch (err: any) {
-    console.warn('Supabase upload exception:', err);
-    const fallbackUrl = URL.createObjectURL(file);
-    if (onProgress) onProgress(100);
-    return {
-      publicUrl: fallbackUrl,
-      path: filePath,
-      bucket: bucketName,
-      fileSize: file.size,
-      mimeType: file.type || 'video/mp4',
-    };
+    console.warn('Direct client Supabase upload exception, delegating to server Supabase uploader:', err?.message || err);
   }
+
+  // 2. Second attempt: Server-side Supabase storage uploader
+  // The server has verified unhindered network access to Supabase Storage and uploads the buffer directly
+  if (onProgress) onProgress(50);
+  try {
+    const formData = new FormData();
+    formData.append('video', file);
+    formData.append('title', cleanBaseName);
+
+    const res = await fetch('/api/videos/upload-file', {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (res.ok) {
+      const serverVideo = await res.json();
+      if (serverVideo && serverVideo.videoUrl && !serverVideo.videoUrl.startsWith('blob:')) {
+        if (onProgress) onProgress(100);
+        return {
+          publicUrl: serverVideo.supabaseUrl || serverVideo.videoUrl,
+          path: serverVideo.supabasePath || filePath,
+          bucket: bucketName,
+          fileSize: file.size,
+          mimeType: file.type || 'video/mp4',
+        };
+      }
+    }
+  } catch (serverErr: any) {
+    console.error('Server-side Supabase upload route exception:', serverErr);
+  }
+
+  // If both direct client and server upload failed, do NOT return a temporary blob URL!
+  throw new Error('Failed to upload video to Supabase Storage. Please check Supabase storage bucket permissions.');
 }
 
 /**
